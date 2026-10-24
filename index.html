@@ -129,10 +129,10 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <div class="toast" id="toast" hidden></div>
     <div class="cbar" id="cbar" aria-label="C-armの角度">
       <div class="cang" id="angBig">AP 0°</div>
+      <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
       <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
       <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
       <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
-      <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
       <button class="btn" id="gyroMode" hidden aria-label="傾き操作の対象を切り替え">傾き:針</button>
       <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
     </div>
@@ -217,7 +217,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは、横持ちの画面を縦軸まわりにひねる動きの3倍でLAO/RAOが回ります（30°ひねるとLAO/RAO 90°）。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは、横持ちの画面を縦軸まわりにひねる動きの3倍でLAO/RAOが回ります（30°ひねるとLAO/RAO 90°）。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。スマホでは自動でオンになります（iPhoneは最初のタップで許可を求めます）。HTTPSのページを直接開いたときのみ動作します。</p>
   </div>
   <div class="sec">
     <div class="lab">使い方</div>
@@ -553,6 +553,7 @@ let toastT;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;c
 
 function setEntry(p){
   S.entry=p;S.normal=surfaceNormal(p);S.yaw=0;S.pitch=0;S.depth=0;$('depth').value=0;
+  rebaseYaw();rebasePitch();   // 傾き操作中でも、新しい刺入点では角度0から始める
   {const h=hitWhat(p.clone().addScaledVector(S.normal,-1.2));if(h)toast('この刺入点の直下に'+h+'があります');}
   syncUI();
 }
@@ -694,19 +695,36 @@ window.addEventListener('pointerup',release);
 window.addEventListener('pointercancel',release);
 $('lockY').onclick=()=>toggleLock('y');
 $('lockP').onclick=()=>toggleLock('p');
-$('gyroBtn').onclick=async()=>{
-  if(S.gyro){base=null;toast('姿勢を合わせ直します');return;}
+/* 傾き操作の開始。iPhoneは許可ダイアログのためタップ操作の中で呼ぶ必要がある */
+let gyroStarting=false;
+async function startGyro(auto){
+  if(S.gyro||gyroStarting)return;gyroStarting=true;
   try{
     if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
       const r=await DeviceOrientationEvent.requestPermission();if(r!=='granted')throw 0;
     }
     window.addEventListener('deviceorientation',onOri);
     setTimeout(()=>{
-      if(!gotEvent){window.removeEventListener('deviceorientation',onOri);toast('この表示では傾きセンサーが使えません。スライダーで操作してください');return;}
+      gyroStarting=false;
+      if(!gotEvent){window.removeEventListener('deviceorientation',onOri);if(!auto)toast('この表示では傾きセンサーが使えません。スライダーで操作してください');return;}
       S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockY').hidden=false;$('lockP').hidden=false;$('gyroMode').hidden=false;
+      if(auto)toast('傾き操作をオンにしました（設定から合わせ直せます）');
     },1500);
-  }catch(_){toast('傾きセンサーの利用が許可されませんでした。スライダーで操作してください');}
+  }catch(_){gyroStarting=false;toast('傾きセンサーの利用が許可されませんでした。スライダーで操作してください');}
+}
+$('gyroBtn').onclick=()=>{
+  if(S.gyro){base=null;toast('今の姿勢を基準に合わせ直しました');return;}
+  startGyro(false);
 };
+/* スマホ・タブレット（指で操作する端末）では傾き操作を自動でオンにする。
+   Androidは読み込み時に開始、iPhoneは許可が必要なため最初のタップで開始する */
+if(window.matchMedia&&matchMedia('(pointer:coarse)').matches){
+  const needsPermission=typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function';
+  if(needsPermission){
+    const once=()=>{document.removeEventListener('click',once,true);startGyro(true);};
+    document.addEventListener('click',once,true);
+  }else startGyro(true);
+}
 
 /* 設定シート */
 function setSheet(open){$('sheet').hidden=!open;$('scrim').hidden=!open;if(open)$('closeSet').focus();else $('openSet').focus();}
