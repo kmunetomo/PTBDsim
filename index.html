@@ -602,7 +602,7 @@ fCan.addEventListener('click',e=>{
   setEntry(p);
 });
 
-const th=v=>{S.theta=Math.max(-90,Math.min(90,v));syncUI();};
+const th=v=>{S.theta=Math.max(-90,Math.min(90,v));syncUI();if(S.gyroMode==='carm')rebase();};
 $('theta').oninput=e=>th(+e.target.value);
 $('thMinus').onclick=()=>th(S.theta-5);
 $('thPlus').onclick=()=>th(S.theta+5);
@@ -640,11 +640,12 @@ function onOri(e){
   lastRaw={h,v};
   if(!base){base={h,v};toast('今の姿勢を0°にしました');}
   if(S.gyroMode==='carm'){
+    if(S.holdCarm)return;
     const t=Math.round(Math.max(-90,Math.min(90,(h-base.h)*CARM_GAIN)));
     if(t!==S.theta){S.theta=t;syncUI();}
     return;
   }
-  if(!S.entry||(S.lockY&&S.lockP))return;
+  if(S.holdNeedle||!S.entry||(S.lockY&&S.lockP))return;
   if(!S.lockY)S.yaw=Math.round(Math.max(-60,Math.min(60,h-base.h)));
   if(!S.lockP)S.pitch=Math.round(Math.max(-60,Math.min(60,v-base.v)));
   syncUI();
@@ -663,6 +664,17 @@ $('gyroMode').onclick=()=>{
   if(base&&lastRaw){if(c)base.h=lastRaw.h-S.theta/CARM_GAIN;else{base.h=lastRaw.h-S.yaw;base.v=lastRaw.v-S.pitch;}}
   toast(c?'スマホを左右に傾けるとC-armが回ります':'スマホの傾きで針の角度を動かします');
 };
+/* バーやスライダーを触っている間は、その対象の傾き操作を止める。離したら今の角度を基準に付け直す */
+function rebase(){
+  if(!base||!lastRaw)return;
+  if(S.gyroMode==='carm')base.h=lastRaw.h-S.theta/CARM_GAIN;
+  else{if(!S.lockY)base.h=lastRaw.h-S.yaw;if(!S.lockP)base.v=lastRaw.v-S.pitch;}
+}
+$('cbar').addEventListener('pointerdown',()=>{S.holdCarm=true;});
+['yaw','pitch'].forEach(id=>$(id).addEventListener('pointerdown',()=>{S.holdNeedle=true;}));
+function release(){if(S.holdCarm||S.holdNeedle){S.holdCarm=false;S.holdNeedle=false;rebase();}}
+window.addEventListener('pointerup',release);
+window.addEventListener('pointercancel',release);
 $('lockY').onclick=()=>toggleLock('y');
 $('lockP').onclick=()=>toggleLock('p');
 $('gyroBtn').onclick=async()=>{
