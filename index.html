@@ -34,7 +34,13 @@ body{
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-.app{display:grid;grid-template-columns:clamp(118px,15vw,170px) minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
+.app{display:grid;grid-template-columns:64px minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
+.rail{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 5px;display:flex;flex-direction:column;align-items:stretch;gap:5px;min-height:0}
+.rail .btn{flex:0 0 auto;padding:3px 2px;font-size:11.5px;line-height:1.2;min-height:30px}
+.railang{font-family:var(--f-mono);font-size:13px;font-weight:500;text-align:center;line-height:1.15;font-variant-numeric:tabular-nums}
+.vwrap{flex:1 1 auto;min-height:60px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.vwrap .hint{font-size:10.5px}
+input[type=range].vert{writing-mode:vertical-lr;direction:rtl;width:30px;height:auto;flex:1 1 auto;min-height:40px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-width:0;min-height:0}
 .sec{display:flex;flex-direction:column;gap:5px}
 .lab{font-size:11px;color:var(--muted);letter-spacing:.06em}
@@ -46,6 +52,7 @@ body{
 .sl{display:grid;grid-template-columns:2.6em 1fr;align-items:center;gap:4px;font-size:11.5px;color:var(--muted)}
 .sl3{grid-template-columns:2.6em 1fr auto}
 .sl3 .val{color:var(--fg)}
+.btn.lk{flex:0 0 auto;min-height:26px;padding:2px 6px;font-size:11px}
 .btn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:5px 8px;font:inherit;font-size:12.5px;min-height:34px;cursor:pointer;flex:1 1 auto;min-width:0}
 .btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn.on{border-color:var(--accent);color:var(--accent)}
@@ -107,19 +114,16 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 
 <div class="app" id="app">
   <!-- 左：C-arm -->
-  <aside class="panel" aria-label="C-armの角度">
-    <div class="sec">
-      <div class="lab">C-ARM</div>
-      <div class="big" id="angBig">AP 0°</div>
-      <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
-      <div class="row between hint"><span>RAO</span><span>LAO</span></div>
-      <div class="grid2">
-        <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
-        <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
-      </div>
-      <button class="btn" id="thZero">正面（AP）</button>
-    </div>
-    <button class="btn push" id="openSet" aria-haspopup="dialog">設定・使い方</button>
+  <!-- 左：C-armレール（左親指で縦スライダー） -->
+  <aside class="rail" aria-label="C-armの角度">
+    <div class="railang" id="angBig">AP<br>0°</div>
+    <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO<br>+5°</button>
+    <div class="vwrap"><span class="hint">LAO</span>
+      <input type="range" class="vert" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（上がLAO、下がRAO）">
+    <span class="hint">RAO</span></div>
+    <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO<br>+5°</button>
+    <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
+    <button class="btn" id="openSet" aria-haspopup="dialog" aria-label="設定・使い方">設定</button>
   </aside>
 
   <!-- 中央：透視 / 3D -->
@@ -172,9 +176,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     </div>
     <div class="sec">
       <div class="row between"><span class="lab">針の角度</span><span class="val" id="angVal">水平 0° / 頭尾 0°</span></div>
-      <label class="sl" for="yaw"><span>水平</span><input type="range" id="yaw" min="-60" max="60" step="1" value="0"></label>
-      <label class="sl" for="pitch"><span>頭尾</span><input type="range" id="pitch" min="-60" max="60" step="1" value="0"></label>
-      <button class="btn" id="lockBtn" hidden>固定</button>
+      <div class="sl sl3"><label for="yaw">水平</label><input type="range" id="yaw" min="-60" max="60" step="1" value="0"><button class="btn lk" id="lockY" hidden aria-pressed="false">固定</button></div>
+      <div class="sl sl3"><label for="pitch">頭尾</label><input type="range" id="pitch" min="-60" max="60" step="1" value="0"><button class="btn lk" id="lockP" hidden aria-pressed="false">固定</button></div>
     </div>
     <div class="sec">
       <label class="sl sl3" for="depth"><span>深さ</span><input type="range" id="depth" min="0" max="15" step="0.1" value="0"><span class="val" id="depVal">0.0 cm</span></label>
@@ -214,7 +217,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルに「固定」ボタンが出ます。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが出ます。HTTPSのページを直接開いたときのみ動作します。</p>
   </div>
   <div class="sec">
     <div class="lab">使い方</div>
@@ -247,7 +250,8 @@ const BODY={a:16,b:11,z0:-22,z1:20};
 const ISO=V(-3,0.5,-1);      // C-armの回転中心
 const SOD=75;                // 管球〜回転中心（血管造影装置の一般的な値に寄せた概数）
 const SID=115;               // 管球〜検出器
-const HALF_H=10.5;           // 回転中心での視野の縦半分
+const HALF_H=8;              // 回転中心での視野の縦半分（胆管の上下端＋余白。頭尾方向は狭めて拡大）
+const HALF_W=13.5;           // 回転中心での視野の横半分（右側腹部の刺入点まで入る幅）
 const NEEDLE_LEN=15;
 
 const LIVER=[ {c:V(-6,0,0), r:V(9.5,7.5,8.5)}, {c:V(3,4.5,-0.5), r:V(8.5,5.5,7.5)} ];
@@ -535,7 +539,7 @@ function resultText(){
 /* ===== UI ===== */
 function syncUI(){
   computeDepth();
-  $('angBig').textContent=angText(S.theta);
+  $('angBig').innerHTML=angText(S.theta).replace(' ','<br>');
   $('theta').value=S.theta;
   $('yaw').value=S.yaw;$('pitch').value=S.pitch;
   $('angVal').textContent='水平 '+S.yaw+'° / 頭尾 '+S.pitch+'°';
@@ -626,17 +630,27 @@ $('reset').onclick=()=>{S.depth=0;$('depth').value=0;syncUI();};
 
 /* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
 let base=null,gotEvent=false;
+let lastRaw=null;
 function onOri(e){
   if(e.beta==null)return;gotEvent=true;
   const ang=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
   let h,v;
   if(ang===90){h=e.beta;v=-e.gamma;}else if(ang===270||ang===-90){h=-e.beta;v=e.gamma;}else{h=e.gamma;v=e.beta;}
+  lastRaw={h,v};
   if(!base){base={h,v};toast('今の姿勢を0°にしました');}
-  if(S.locked||!S.entry)return;
-  S.yaw=Math.round(Math.max(-60,Math.min(60,h-base.h)));
-  S.pitch=Math.round(Math.max(-60,Math.min(60,v-base.v)));
+  if(!S.entry||(S.lockY&&S.lockP))return;
+  if(!S.lockY)S.yaw=Math.round(Math.max(-60,Math.min(60,h-base.h)));
+  if(!S.lockP)S.pitch=Math.round(Math.max(-60,Math.min(60,v-base.v)));
   syncUI();
 }
+/* 軸ごとの固定。解除時はその軸の基準を付け直し、固定中の角度から続けて動かせるようにする */
+function toggleLock(axis){
+  const k=axis==='y'?'lockY':'lockP',id=k;
+  S[k]=!S[k];$(id).classList.toggle('on',S[k]);$(id).setAttribute('aria-pressed',S[k]);$(id).textContent=S[k]?'固定中':'固定';
+  if(!S[k]&&base&&lastRaw){if(axis==='y')base.h=lastRaw.h-S.yaw;else base.v=lastRaw.v-S.pitch;}
+}
+$('lockY').onclick=()=>toggleLock('y');
+$('lockP').onclick=()=>toggleLock('p');
 $('gyroBtn').onclick=async()=>{
   if(S.gyro){base=null;toast('姿勢を合わせ直します');return;}
   try{
@@ -646,11 +660,10 @@ $('gyroBtn').onclick=async()=>{
     window.addEventListener('deviceorientation',onOri);
     setTimeout(()=>{
       if(!gotEvent){window.removeEventListener('deviceorientation',onOri);toast('この表示では傾きセンサーが使えません。スライダーで操作してください');return;}
-      S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockBtn').hidden=false;
+      S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockY').hidden=false;$('lockP').hidden=false;
     },1500);
   }catch(_){toast('傾きセンサーの利用が許可されませんでした。スライダーで操作してください');}
 };
-$('lockBtn').onclick=()=>{S.locked=!S.locked;$('lockBtn').classList.toggle('on',S.locked);$('lockBtn').textContent=S.locked?'固定中（解除）':'固定';};
 
 /* 設定シート */
 function setSheet(open){$('sheet').hidden=!open;$('scrim').hidden=!open;if(open)$('closeSet').focus();else $('openSet').focus();}
@@ -682,8 +695,8 @@ $('resShow').onclick=()=>{$('resMini').hidden=true;$('result').hidden=false;};
 function resize(){
   const r=$('viewer').getBoundingClientRect(),w=Math.max(10,r.width),h=Math.max(10,r.height);
   fr.setSize(w,h,false);fCam.aspect=w/h;
-  // 回転中心で横28 cm×縦21 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
-  const halfH=Math.max(HALF_H,14/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
+  // 回転中心で横27 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
+  const halfH=Math.max(HALF_H,HALF_W/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
   fCam.updateProjectionMatrix();renderFluoro();
   if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
 }
