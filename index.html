@@ -425,7 +425,7 @@ function setDashTube(g,a,b){
   const dir=d.clone().normalize(),q=new THREE.Quaternion().setFromUnitVectors(V(0,1,0),dir),dash=0.9,gap=0.5,r=g.userData.r;
   for(let s0=0;s0<L;s0+=dash+gap){
     const len=Math.min(dash,L-s0),mid=a.clone().addScaledVector(dir,s0+len/2);
-    [[g.userData.halo,r*1.9,10],[g.userData.core,r,11]].forEach(([m,rr,o])=>{
+    [[g.userData.core,r,11]].forEach(([m,rr,o])=>{
       const c=new THREE.Mesh(UNIT_CYL,m);c.quaternion.copy(q);c.position.copy(mid);c.scale.set(rr,len,rr);c.renderOrder=o;g.add(c);
     });
   }
@@ -437,7 +437,8 @@ function placeGuides(gT,gE){
   gE.visible=S.gExt&&!!S.entry;
   if(gE.visible){const t=tip();gE.geometry.setFromPoints([t,t.clone().addScaledVector(needleDir(),15)]);gE.computeLineDistances();}
 }
-const fGT=dashTube(0xffc35a,0.14),fGE=dashLine(0xffffff);fScene.add(fGT,fGE);
+/* 標的線：画面上で約2 px幅の鮮やかなシアンの破線（幅は視野の大きさから毎回計算） */
+const fGT=dashTube(0x26f0ff,0.05),fGE=dashLine(0xffffff);fScene.add(fGT,fGE);
 
 function placeNeedle(n,h){
   if(!S.entry){n.visible=h.visible=false;return;}
@@ -503,7 +504,7 @@ function init3D(){
   root.add(tTgt);
   tBeam=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,0,1)]),new THREE.LineBasicMaterial({color:0xf2a93b,transparent:true,opacity:.6}));
   root.add(tBeam);
-  tGT=dashTube(0xffc35a,0.13);tGE=dashLine(0xffffff);root.add(tGT,tGE);
+  tGT=dashTube(0x26f0ff,0.08);tGE=dashLine(0xffffff);root.add(tGT,tGE);
   /* 方向ラベル */
   const label=(txt,p)=>{
     const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
@@ -777,6 +778,7 @@ function resize(){
   fr.setSize(w,h,false);fCam.aspect=w/h;
   // 回転中心で横40 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
   const halfH=Math.max(HALF_H,HALF_W/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
+  fGT.userData.r=2*halfH/h;   // 回転中心で1 pxに相当する半径＝幅約2 px
   fCam.updateProjectionMatrix();renderFluoro();
   if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
 }
