@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <style>
-/* Layout: 横持ちの3列。左＝C-arm、中央＝仮想透視モニタ、右＝刺入点と針の操作（親指の届く位置） */
+/* Layout: 横持ちの3列。左＝C-arm（細い）、中央＝透視モニタ（常に全景）、右＝刺入点と針。補助設定は「設定」シートに収納 */
 :root{
   --bg:#0c1012;
   --panel:#141a1d;
@@ -26,65 +26,78 @@
 }
 html,body{height:100%}
 body{
+  height:100dvh;
   background:var(--bg);color:var(--fg);font-family:var(--f-ui);margin:0;overflow:hidden;
   padding-left:max(16px,env(safe-area-inset-left,0px));
   padding-right:max(16px,env(safe-area-inset-right,0px));
-  padding-block:10px;box-sizing:border-box;
+  padding-block:8px;box-sizing:border-box;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-.app{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr) minmax(190px,250px);gap:10px;height:100%}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;min-width:0}
-.sec{display:flex;flex-direction:column;gap:6px}
+.app{display:grid;grid-template-columns:clamp(118px,15vw,170px) minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-width:0;min-height:0}
+.sec{display:flex;flex-direction:column;gap:5px}
 .lab{font-size:11px;color:var(--muted);letter-spacing:.06em}
-.big{font-family:var(--f-mono);font-size:24px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
-.val{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
-.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.big{font-family:var(--f-mono);font-size:21px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+.val{font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
 .row.between{justify-content:space-between}
-.btn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:7px 10px;font:inherit;font-size:13px;min-height:36px;cursor:pointer;flex:1 1 auto}
-.btn:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.sl{display:grid;grid-template-columns:2.6em 1fr;align-items:center;gap:4px;font-size:11.5px;color:var(--muted)}
+.btn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:5px 8px;font:inherit;font-size:12.5px;min-height:34px;cursor:pointer;flex:1 1 auto;min-width:0}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn.on{border-color:var(--accent);color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .btn:disabled{opacity:.45;cursor:default}
-input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:0}
-.hint{font-size:11.5px;color:var(--muted);line-height:1.5}
-.chip{border-radius:999px;padding:5px 10px;font-size:12.5px;border:1px solid var(--line);background:var(--panel2);text-align:center}
+.push{margin-top:auto;flex:0 0 auto}
+.panel>.btn{flex:0 0 auto}
+input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
+.hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin:0}
+.chip{border-radius:999px;padding:4px 8px;font-size:12px;border:1px solid var(--line);background:var(--panel2);text-align:center}
 .chip.good{border-color:var(--good);color:var(--good)}
 .chip.bad{border-color:var(--bad);color:var(--bad)}
 .chip.warn{border-color:var(--warn);color:var(--warn)}
 
-.viewer{position:relative;border-radius:10px;overflow:hidden;background:#000;min-width:0;border:1px solid var(--line)}
+.viewer{position:relative;border-radius:10px;overflow:hidden;background:#000;min-width:0;min-height:0;border:1px solid var(--line)}
 .viewer canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .fx{position:absolute;inset:0;pointer-events:none}
 .vignette{background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.45) 100%)}
 .noise{opacity:.13;mix-blend-mode:overlay}
-.ov{position:absolute;font-family:var(--f-mono);font-size:13px;color:#f4f4f0;text-shadow:0 1px 2px #000;pointer-events:none;font-variant-numeric:tabular-nums}
-.ov.tl{top:10px;left:12px}
-.ov.tr{top:10px;right:12px;text-align:right}
-.ov.bl{bottom:10px;left:12px}
-.ov.side{top:50%;transform:translateY(-50%);font-size:18px;font-weight:500}
+.ov{position:absolute;font-family:var(--f-mono);font-size:12.5px;color:#f4f4f0;text-shadow:0 1px 2px #000;pointer-events:none;font-variant-numeric:tabular-nums}
+.ov.tl{top:8px;left:10px}
+.ov.tr{top:8px;right:10px;text-align:right}
+.ov.bl{bottom:8px;left:10px}
+.ov.side{top:50%;transform:translateY(-50%);font-size:17px;font-weight:500}
 .lamp{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle;box-shadow:0 0 8px var(--accent)}
-.toast{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(12,16,18,.88);border:1px solid var(--line);color:var(--fg);padding:7px 12px;border-radius:8px;font-size:12.5px;max-width:80%;text-align:center}
+.toast{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(12,16,18,.88);border:1px solid var(--line);color:var(--fg);padding:6px 12px;border-radius:8px;font-size:12.5px;max-width:80%;text-align:center}
 
-.result{position:absolute;left:10px;top:10px;max-width:min(320px,60%);background:rgba(12,16,18,.86);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.result{position:absolute;left:8px;top:8px;max-width:min(320px,62%);max-height:calc(100% - 16px);overflow-y:auto;background:rgba(12,16,18,.86);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;cursor:pointer}
 .result h2{margin:0;font-size:15px;font-weight:700;text-wrap:balance}
 .legend{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;font-size:12px;color:var(--muted);align-items:center}
 .sw{width:14px;height:6px;border-radius:2px}
-.result{cursor:pointer}
-.resmini{position:absolute;left:10px;top:10px;flex-wrap:nowrap}
+.resmini{position:absolute;left:8px;top:8px;flex-wrap:nowrap}
 .resmini .btn{flex:0 0 auto}
+
+/* 設定シート：右から出るパネル */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:15}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(340px,88vw);z-index:16;background:var(--panel);border-left:1px solid var(--line);
+  display:flex;flex-direction:column;gap:14px;overflow-y:auto;
+  padding-top:max(12px,env(safe-area-inset-top,0px));padding-bottom:max(12px,env(safe-area-inset-bottom,0px));
+  padding-left:14px;padding-right:max(14px,env(safe-area-inset-right,0px))}
+.sheet h2{margin:0;font-size:15px}
+.sheet select.btn{min-height:36px}
 
 .rotate{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;z-index:20;
   padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
-.rotate p{margin:0;max-width:28em;line-height:1.6}
+.rotate p{max-width:28em}
 
 @media (max-height:430px){
-  body{padding-block:6px}
-  .app{gap:6px}
-  .panel{padding:8px;gap:8px}
-  .big{font-size:19px}
-  .btn{min-height:32px;padding:5px 8px;font-size:12px}
-  .hint{font-size:11px}
+  body{padding-block:5px}
+  .app{gap:5px}
+  .panel{padding:6px;gap:7px}
+  .big{font-size:18px}
+  .btn{min-height:30px;padding:3px 6px;font-size:12px}
+  input[type=range]{height:22px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -93,45 +106,17 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:0}
   <!-- 左：C-arm -->
   <aside class="panel" aria-label="C-armの角度">
     <div class="sec">
-      <div class="lab">C-ARM 角度</div>
+      <div class="lab">C-ARM</div>
       <div class="big" id="angBig">AP 0°</div>
       <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
-      <div class="row between hint"><span>RAO 90°</span><span>LAO 90°</span></div>
-      <div class="row">
+      <div class="row between hint"><span>RAO</span><span>LAO</span></div>
+      <div class="grid2">
         <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
         <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
       </div>
-      <button class="btn" id="thZero">正面（AP）に戻す</button>
+      <button class="btn" id="thZero">正面（AP）</button>
     </div>
-    <div class="sec">
-      <div class="row between"><label class="lab" for="dw">胆管の太さ（末梢枝の径）</label><span class="val" id="dwVal">6 mm</span></div>
-      <input type="range" id="dw" min="2" max="12" step="1" value="6">
-      <p class="hint" style="margin:0">胆管全体を同じ比率で太く／細くします（肝管・総胆管は末梢枝の約1.3倍）。穿刺の判定もこの太さで行います。</p>
-    </div>
-    <div class="sec">
-      <div class="lab">ターゲット（補助表示）</div>
-      <select id="tgt" class="btn" aria-label="ターゲットを置く胆管">
-        <option value="">なし</option>
-        <option>B2</option><option selected>B3</option><option>B4</option>
-        <option>B5</option><option>B6</option><option>B7</option><option>B8</option>
-      </select>
-      <div class="row between"><label class="hint" for="tgtSize">直径</label><span class="val" id="tgtVal">7 mm</span></div>
-      <input type="range" id="tgtSize" min="5" max="30" step="1" value="7">
-      <p class="hint" style="margin:0">琥珀色の円は透視には写らない補助表示です。刺入点のボタンを押すと推奨の枝に切り替わります。</p>
-    </div>
-    <div class="sec">
-      <div class="lab">ガイド線（点線）</div>
-      <button class="btn" id="gTgt" aria-pressed="false">刺入点→ターゲット</button>
-      <button class="btn" id="gExt" aria-pressed="false">針の延長線</button>
-    </div>
-    <div class="sec">
-      <div class="lab">見え方</div>
-      <p class="hint" style="margin:0">管球は背側、検出器は腹側。LAOは検出器を患者の左前へ回す向き。</p>
-    </div>
-    <div class="sec">
-      <div class="lab">症例</div>
-      <p class="hint" style="margin:0">模式解剖・全胆管拡張・造影済み（1症例）</p>
-    </div>
+    <button class="btn push" id="openSet" aria-haspopup="dialog">設定・使い方</button>
   </aside>
 
   <!-- 中央：透視 / 3D -->
@@ -142,8 +127,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:0}
     <div class="ov tl" id="ovTL"><span class="lamp"></span>透視</div>
     <div class="ov tr" id="ovTR">AP 0°</div>
     <div class="ov bl" id="ovBL">深さ 0.0 cm</div>
-    <div class="ov side" id="ovL" style="left:12px">R</div>
-    <div class="ov side" id="ovR" style="right:12px"></div>
+    <div class="ov side" id="ovL" style="left:10px">R</div>
+    <div class="ov side" id="ovR" style="right:10px"></div>
     <div class="toast" id="toast" hidden></div>
 
     <canvas id="three" hidden aria-label="3D答え合わせ。ドラッグで回転、ピンチで拡大"></canvas>
@@ -172,40 +157,77 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:0}
   <aside class="panel" aria-label="針の操作">
     <div class="sec">
       <div class="lab">刺入点</div>
-      <div class="row">
+      <div class="grid2">
         <button class="btn" id="preR">右肋間</button>
         <button class="btn" id="preE">心窩部</button>
       </div>
-      <div class="row">
+      <div class="grid2">
         <button class="btn" id="nzU" aria-label="刺入点を1 cm頭側へ">頭側</button>
         <button class="btn" id="nzD" aria-label="刺入点を1 cm尾側へ">尾側</button>
         <button class="btn" id="nsA">—</button>
         <button class="btn" id="nsB">—</button>
       </div>
-      <p class="hint" style="margin:0">ボタンは1 cmずつ体表に沿って移動（針の角度は保持）。透視画像のタップでも設定できます。いずれも針を抜いた状態のみ。</p>
     </div>
     <div class="sec">
       <div class="row between"><span class="lab">針の角度</span><span class="val" id="angVal">水平 0° / 頭尾 0°</span></div>
-      <label class="hint" for="yaw">水平面の振り</label>
-      <input type="range" id="yaw" min="-60" max="60" step="1" value="0">
-      <label class="hint" for="pitch">頭尾方向（＋が頭側）</label>
-      <input type="range" id="pitch" min="-60" max="60" step="1" value="0">
-      <div class="row">
-        <button class="btn" id="gyroBtn">傾きで操作</button>
-        <button class="btn" id="lockBtn" disabled>固定</button>
-      </div>
+      <label class="sl" for="yaw"><span>水平</span><input type="range" id="yaw" min="-60" max="60" step="1" value="0"></label>
+      <label class="sl" for="pitch"><span>頭尾</span><input type="range" id="pitch" min="-60" max="60" step="1" value="0"></label>
+      <button class="btn" id="lockBtn" hidden>固定</button>
     </div>
     <div class="sec">
-      <div class="row between"><span class="lab">針を進める／引く</span><span class="val" id="depVal">0.0 cm</span></div>
+      <div class="row between"><span class="lab">深さ</span><span class="val" id="depVal">0.0 cm</span></div>
       <input type="range" id="depth" min="0" max="15" step="0.1" value="0" aria-label="針の深さ">
       <div class="chip" id="status">刺入点を選んでください</div>
     </div>
-    <div class="row">
-      <button class="btn primary" id="go3d">3Dで答え合わせ</button>
+    <div class="grid2 push">
+      <button class="btn primary" id="go3d">3Dで確認</button>
       <button class="btn" id="reset">針を抜く</button>
     </div>
   </aside>
 </div>
+
+<!-- 設定シート -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="sheet" id="sheet" role="dialog" aria-label="設定と使い方" hidden>
+  <div class="row between"><h2>設定・使い方</h2><button class="btn" id="closeSet" style="flex:0 0 auto">閉じる</button></div>
+  <div class="sec">
+    <div class="row between"><label class="lab" for="dw">胆管の太さ（末梢枝の径）</label><span class="val" id="dwVal">6 mm</span></div>
+    <input type="range" id="dw" min="2" max="12" step="1" value="6">
+    <p class="hint">全枝を同じ比率で拡縮（肝管・総胆管は末梢枝の約1.3倍）。穿刺の判定もこの太さで行います。</p>
+  </div>
+  <div class="sec">
+    <div class="lab">ターゲット（補助表示）</div>
+    <select id="tgt" class="btn" aria-label="ターゲットを置く胆管">
+      <option value="">なし</option>
+      <option>B2</option><option selected>B3</option><option>B4</option>
+      <option>B5</option><option>B6</option><option>B7</option><option>B8</option>
+    </select>
+    <div class="row between"><label class="hint" for="tgtSize">直径</label><span class="val" id="tgtVal">7 mm</span></div>
+    <input type="range" id="tgtSize" min="5" max="30" step="1" value="7">
+    <p class="hint">琥珀色の円は透視には写らない補助表示です。刺入点のボタンを押すと推奨の枝に切り替わります（右肋間→B6、心窩部→B3）。</p>
+  </div>
+  <div class="sec">
+    <div class="lab">ガイド線（点線）</div>
+    <div class="grid2">
+      <button class="btn" id="gTgt" aria-pressed="false">刺入点→ターゲット</button>
+      <button class="btn" id="gExt" aria-pressed="false">針の延長線</button>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="lab">傾き操作</div>
+    <button class="btn" id="gyroBtn">傾きで操作する</button>
+    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルに「固定」ボタンが出ます。HTTPSのページを直接開いたときのみ動作します。</p>
+  </div>
+  <div class="sec">
+    <div class="lab">使い方</div>
+    <p class="hint">刺入点はボタンか透視画像のタップで選び、頭側・尾側などで1 cmずつ動かせます（針を抜いた状態のみ）。管球は背側、検出器は腹側で、LAOは検出器を患者の左前へ回す向きです。</p>
+  </div>
+  <div class="sec">
+    <div class="lab">症例</div>
+    <p class="hint">模式解剖・全胆管拡張・造影済み（1症例）</p>
+    <p class="hint">教育用の試作です。解剖は模式的で正確性は保証しません。臨床判断には使わないでください。</p>
+  </div>
+</aside>
 
 <div class="rotate" id="rotate" hidden>
   <div class="big">横向きにしてください</div>
@@ -615,11 +637,18 @@ $('gyroBtn').onclick=async()=>{
     window.addEventListener('deviceorientation',onOri);
     setTimeout(()=>{
       if(!gotEvent){window.removeEventListener('deviceorientation',onOri);toast('この表示では傾きセンサーが使えません。スライダーで操作してください');return;}
-      S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockBtn').disabled=false;
+      S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockBtn').hidden=false;
     },1500);
   }catch(_){toast('傾きセンサーの利用が許可されませんでした。スライダーで操作してください');}
 };
 $('lockBtn').onclick=()=>{S.locked=!S.locked;$('lockBtn').classList.toggle('on',S.locked);$('lockBtn').textContent=S.locked?'固定中（解除）':'固定';};
+
+/* 設定シート */
+function setSheet(open){$('sheet').hidden=!open;$('scrim').hidden=!open;if(open)$('closeSet').focus();else $('openSet').focus();}
+$('openSet').onclick=()=>setSheet(true);
+$('closeSet').onclick=()=>setSheet(false);
+$('scrim').onclick=()=>setSheet(false);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet').hidden)setSheet(false);});
 
 /* 表示切替 */
 const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR'];
@@ -643,7 +672,10 @@ $('resShow').onclick=()=>{$('resMini').hidden=true;$('result').hidden=false;};
 /* サイズ・向き */
 function resize(){
   const r=$('viewer').getBoundingClientRect(),w=Math.max(10,r.width),h=Math.max(10,r.height);
-  fr.setSize(w,h,false);fCam.aspect=w/h;fCam.updateProjectionMatrix();renderFluoro();
+  fr.setSize(w,h,false);fCam.aspect=w/h;
+  // 回転中心で横28 cm×縦21 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
+  const halfH=Math.max(HALF_H,14/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
+  fCam.updateProjectionMatrix();renderFluoro();
   if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
 }
 new ResizeObserver(resize).observe($('viewer'));
