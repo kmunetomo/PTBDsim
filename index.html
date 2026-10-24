@@ -217,7 +217,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは、横持ちの画面を縦軸まわりにひねる動きの3倍でLAO/RAOが回ります（30°ひねるとLAO/RAO 90°）。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは、横持ちの画面を縦軸まわりにひねる動きの3倍でLAO/RAOが回ります（30°ひねるとLAO/RAO 90°）。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。HTTPSのページを直接開いたときのみ動作します。</p>
   </div>
   <div class="sec">
     <div class="lab">使い方</div>
@@ -636,51 +636,57 @@ const CARM_GAIN=3;   // C-armモードではひねりの3倍回す（30°ひね�
    端末の向き（alpha/beta/gamma）から回転行列を作り、スマホの長辺方向（端末y軸）の水平面上の向きを使う。
    長辺は横持ちで画面を寝かせても起こしても水平のままなので、ひねりだけを拾い、ハンドル操作や前後の傾きには鈍い */
 function twistDeg(e){
-  const a=(e.alpha||0)*DEG,b=e.beta*DEG,g=e.gamma*DEG;
-  const yx=-Math.cos(b)*Math.sin(a),yy=Math.cos(a)*Math.cos(b);  // 端末y軸の世界座標（水平成分）
+  const a=(e.alpha||0)*DEG,b=e.beta*DEG;
+  const yx=-Math.cos(b)*Math.sin(a),yy=Math.cos(a)*Math.cos(b);  // 端末y軸（スマホの長辺）の世界座標（水平成分）
   return Math.atan2(yx,yy)/DEG;
 }
+/* 画面の寝かせ具合（0°＝画面が垂直、+90°＝画面が真上を向く）。画面の法線（端末z軸）の上向き成分から計算するので、
+   ひねりやハンドル操作には影響されない */
+function reclineDeg(e){
+  const zz=Math.cos(e.beta*DEG)*Math.cos(e.gamma*DEG);
+  return Math.asin(Math.max(-1,Math.min(1,zz)))/DEG;
+}
 function wrap180(d){return ((d+540)%360)-180;}
+/* 傾き操作の割り当て（横持ち）
+   C-arm：ひねり×CARM_GAIN
+   針の水平：ひねり×1
+   針の頭尾：画面を起こす／寝かせる×1（寝かせると尾側） */
 function onOri(e){
   if(e.beta==null)return;gotEvent=true;
-  const ang=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
-  let h,v;
-  if(ang===90){h=e.beta;v=-e.gamma;}else if(ang===270||ang===-90){h=-e.beta;v=e.gamma;}else{h=e.gamma;v=e.beta;}
-  const tw=twistDeg(e);
-  lastRaw={h,v,tw};
-  if(!base){base={h,v,tw};toast('今の姿勢を0°にしました');}
+  const tw=twistDeg(e),rc=reclineDeg(e);
+  lastRaw={tw,rc};
+  if(!base){base={cw:tw-S.theta/CARM_GAIN,ty:tw-S.yaw,rc:rc+S.pitch};toast('今の姿勢を基準にしました');}
   if(S.gyroMode==='carm'){
     if(S.holdCarm)return;
-    if(base.tw==null)base.tw=tw-S.theta/CARM_GAIN;
-    const t=Math.round(Math.max(-90,Math.min(90,wrap180(tw-base.tw)*CARM_GAIN)));
+    const t=Math.round(Math.max(-90,Math.min(90,wrap180(tw-base.cw)*CARM_GAIN)));
     if(t!==S.theta){S.theta=t;syncUI();}
     return;
   }
   if(S.holdNeedle||!S.entry||(S.lockY&&S.lockP))return;
-  if(!S.lockY)S.yaw=Math.round(Math.max(-60,Math.min(60,h-base.h)));
-  if(!S.lockP)S.pitch=Math.round(Math.max(-60,Math.min(60,v-base.v)));
-  syncUI();
+  let ch=false;
+  if(!S.lockY){const y=Math.round(Math.max(-60,Math.min(60,wrap180(tw-base.ty))));if(y!==S.yaw){S.yaw=y;ch=true;}}
+  if(!S.lockP){const p=Math.round(Math.max(-60,Math.min(60,-(rc-base.rc))));if(p!==S.pitch){S.pitch=p;ch=true;}}
+  if(ch)syncUI();
 }
+/* 今の角度を基準に付け直す（固定の解除、モード切替、バーやスライダーから指を離したとき） */
+function rebaseCarm(){if(base&&lastRaw)base.cw=lastRaw.tw-S.theta/CARM_GAIN;}
+function rebaseYaw(){if(base&&lastRaw)base.ty=lastRaw.tw-S.yaw;}
+function rebasePitch(){if(base&&lastRaw)base.rc=lastRaw.rc+S.pitch;}
+function rebase(){if(S.gyroMode==='carm')rebaseCarm();else{if(!S.lockY)rebaseYaw();if(!S.lockP)rebasePitch();}}
 /* 軸ごとの固定。解除時はその軸の基準を付け直し、固定中の角度から続けて動かせるようにする */
 function toggleLock(axis){
   const k=axis==='y'?'lockY':'lockP',id=k;
   S[k]=!S[k];$(id).classList.toggle('on',S[k]);$(id).setAttribute('aria-pressed',S[k]);$(id).textContent=S[k]?'固定中':'固定';
-  if(!S[k]&&base&&lastRaw){if(axis==='y')base.h=lastRaw.h-S.yaw;else base.v=lastRaw.v-S.pitch;}
+  if(!S[k]){if(axis==='y')rebaseYaw();else rebasePitch();}
 }
-/* 傾き操作の対象切替：針の角度 ⇔ C-arm（LAO/RAOのみ）。切替時は基準を付け直し、今の角度から続けて動かす */
+/* 傾き操作の対象切替：針の角度 ⇔ C-arm（LAO/RAOのみ） */
 $('gyroMode').onclick=()=>{
   S.gyroMode=S.gyroMode==='carm'?'needle':'carm';
   const c=S.gyroMode==='carm';
   $('gyroMode').textContent=c?'傾き:C-arm':'傾き:針';$('gyroMode').classList.toggle('on',c);
-  if(base&&lastRaw){if(c)base.tw=lastRaw.tw-S.theta/CARM_GAIN;else{base.h=lastRaw.h-S.yaw;base.v=lastRaw.v-S.pitch;}}
-  toast(c?'画面を縦軸まわりにひねるとC-armが回ります':'スマホの傾きで針の角度を動かします');
+  rebase();
+  toast(c?'画面を縦軸まわりにひねるとC-armが回ります':'ひねりで水平、起こす／寝かせるで頭尾が動きます');
 };
-/* バーやスライダーを触っている間は、その対象の傾き操作を止める。離したら今の角度を基準に付け直す */
-function rebase(){
-  if(!base||!lastRaw)return;
-  if(S.gyroMode==='carm')base.tw=lastRaw.tw-S.theta/CARM_GAIN;
-  else{if(!S.lockY)base.h=lastRaw.h-S.yaw;if(!S.lockP)base.v=lastRaw.v-S.pitch;}
-}
 $('cbar').addEventListener('pointerdown',()=>{S.holdCarm=true;});
 ['yaw','pitch'].forEach(id=>$(id).addEventListener('pointerdown',()=>{S.holdNeedle=true;}));
 function release(){if(S.holdCarm||S.holdNeedle){S.holdCarm=false;S.holdNeedle=false;rebase();}}
