@@ -1,0 +1,653 @@
+<title>PTBD穿刺トレーナー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: 横持ちの3列。左＝C-arm、中央＝仮想透視モニタ、右＝刺入点と針の操作（親指の届く位置） */
+:root{
+  --bg:#0c1012;
+  --panel:#141a1d;
+  --panel2:#1b2327;
+  --line:#2a3438;
+  --fg:#e2e9e6;
+  --muted:#8a9894;
+  --accent:#f2a93b;      /* 透視ONランプの琥珀色 */
+  --accent-ink:#1d1406;
+  --good:#5cc28a;
+  --bad:#e2614f;
+  --warn:#e0894a;
+  --f-ui:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--f-ui);margin:0;overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:10px;box-sizing:border-box;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+.app{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr) minmax(190px,250px);gap:10px;height:100%}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;min-width:0}
+.sec{display:flex;flex-direction:column;gap:6px}
+.lab{font-size:11px;color:var(--muted);letter-spacing:.06em}
+.big{font-family:var(--f-mono);font-size:24px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+.val{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.row.between{justify-content:space-between}
+.btn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:7px 10px;font:inherit;font-size:13px;min-height:36px;cursor:pointer;flex:1 1 auto}
+.btn:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.on{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn:disabled{opacity:.45;cursor:default}
+input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:0}
+.hint{font-size:11.5px;color:var(--muted);line-height:1.5}
+.chip{border-radius:999px;padding:5px 10px;font-size:12.5px;border:1px solid var(--line);background:var(--panel2);text-align:center}
+.chip.good{border-color:var(--good);color:var(--good)}
+.chip.bad{border-color:var(--bad);color:var(--bad)}
+.chip.warn{border-color:var(--warn);color:var(--warn)}
+
+.viewer{position:relative;border-radius:10px;overflow:hidden;background:#000;min-width:0;border:1px solid var(--line)}
+.viewer canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.fx{position:absolute;inset:0;pointer-events:none}
+.vignette{background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.45) 100%)}
+.noise{opacity:.13;mix-blend-mode:overlay}
+.ov{position:absolute;font-family:var(--f-mono);font-size:13px;color:#f4f4f0;text-shadow:0 1px 2px #000;pointer-events:none;font-variant-numeric:tabular-nums}
+.ov.tl{top:10px;left:12px}
+.ov.tr{top:10px;right:12px;text-align:right}
+.ov.bl{bottom:10px;left:12px}
+.ov.side{top:50%;transform:translateY(-50%);font-size:18px;font-weight:500}
+.lamp{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle;box-shadow:0 0 8px var(--accent)}
+.toast{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(12,16,18,.88);border:1px solid var(--line);color:var(--fg);padding:7px 12px;border-radius:8px;font-size:12.5px;max-width:80%;text-align:center}
+
+.result{position:absolute;left:10px;top:10px;max-width:min(320px,60%);background:rgba(12,16,18,.86);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.result h2{margin:0;font-size:15px;font-weight:700;text-wrap:balance}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;font-size:12px;color:var(--muted);align-items:center}
+.sw{width:14px;height:6px;border-radius:2px}
+.result{cursor:pointer}
+.resmini{position:absolute;left:10px;top:10px;flex-wrap:nowrap}
+.resmini .btn{flex:0 0 auto}
+
+.rotate{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;z-index:20;
+  padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.rotate p{margin:0;max-width:28em;line-height:1.6}
+
+@media (max-height:430px){
+  body{padding-block:6px}
+  .app{gap:6px}
+  .panel{padding:8px;gap:8px}
+  .big{font-size:19px}
+  .btn{min-height:32px;padding:5px 8px;font-size:12px}
+  .hint{font-size:11px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app" id="app">
+  <!-- 左：C-arm -->
+  <aside class="panel" aria-label="C-armの角度">
+    <div class="sec">
+      <div class="lab">C-ARM 角度</div>
+      <div class="big" id="angBig">AP 0°</div>
+      <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
+      <div class="row between hint"><span>RAO 90°</span><span>LAO 90°</span></div>
+      <div class="row">
+        <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
+        <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
+      </div>
+      <button class="btn" id="thZero">正面（AP）に戻す</button>
+    </div>
+    <div class="sec">
+      <div class="row between"><label class="lab" for="dw">胆管の太さ（末梢枝の径）</label><span class="val" id="dwVal">6 mm</span></div>
+      <input type="range" id="dw" min="2" max="12" step="1" value="6">
+      <p class="hint" style="margin:0">胆管全体を同じ比率で太く／細くします（肝管・総胆管は末梢枝の約1.3倍）。穿刺の判定もこの太さで行います。</p>
+    </div>
+    <div class="sec">
+      <div class="lab">ターゲット（補助表示）</div>
+      <select id="tgt" class="btn" aria-label="ターゲットを置く胆管">
+        <option value="">なし</option>
+        <option>B2</option><option selected>B3</option><option>B4</option>
+        <option>B5</option><option>B6</option><option>B7</option><option>B8</option>
+      </select>
+      <div class="row between"><label class="hint" for="tgtSize">直径</label><span class="val" id="tgtVal">7 mm</span></div>
+      <input type="range" id="tgtSize" min="5" max="30" step="1" value="7">
+      <p class="hint" style="margin:0">琥珀色の円は透視には写らない補助表示です。刺入点のボタンを押すと推奨の枝に切り替わります。</p>
+    </div>
+    <div class="sec">
+      <div class="lab">ガイド線（点線）</div>
+      <button class="btn" id="gTgt" aria-pressed="false">刺入点→ターゲット</button>
+      <button class="btn" id="gExt" aria-pressed="false">針の延長線</button>
+    </div>
+    <div class="sec">
+      <div class="lab">見え方</div>
+      <p class="hint" style="margin:0">管球は背側、検出器は腹側。LAOは検出器を患者の左前へ回す向き。</p>
+    </div>
+    <div class="sec">
+      <div class="lab">症例</div>
+      <p class="hint" style="margin:0">模式解剖・全胆管拡張・造影済み（1症例）</p>
+    </div>
+  </aside>
+
+  <!-- 中央：透視 / 3D -->
+  <main class="viewer" id="viewer">
+    <canvas id="fluoro" aria-label="仮想透視画像。タップで刺入点を設定"></canvas>
+    <div class="fx vignette" id="vig"></div>
+    <div class="fx noise" id="noise"></div>
+    <div class="ov tl" id="ovTL"><span class="lamp"></span>透視</div>
+    <div class="ov tr" id="ovTR">AP 0°</div>
+    <div class="ov bl" id="ovBL">深さ 0.0 cm</div>
+    <div class="ov side" id="ovL" style="left:12px">R</div>
+    <div class="ov side" id="ovR" style="right:12px"></div>
+    <div class="toast" id="toast" hidden></div>
+
+    <canvas id="three" hidden aria-label="3D答え合わせ。ドラッグで回転、ピンチで拡大"></canvas>
+    <div class="resmini row" id="resMini" hidden>
+      <button class="btn" id="resShow">結果を表示</button>
+      <button class="btn primary" id="back2">透視に戻る</button>
+    </div>
+    <div class="result" id="result" hidden title="タップで閉じる">
+      <h2 id="resTitle">結果</h2>
+      <div class="hint" id="resBody" style="color:var(--fg)"></div>
+      <div class="legend">
+        <span class="sw" style="background:#4cc38a"></span><span>胆管</span>
+        <span class="sw" style="background:#7a8ce0"></span><span>門脈</span>
+        <span class="sw" style="background:#e3573f"></span><span>肝動脈</span>
+        <span class="sw" style="background:#f2f2ee"></span><span>針（黄色＝針先）</span>
+        <span class="sw" style="background:#f2a93b"></span><span>ターゲット</span>
+        <span class="sw" style="background:#9fb4bd"></span><span>肋軟骨・胸骨は3Dのみ</span>
+        <span class="sw" style="background:#f2a93b;opacity:.6"></span><span>X線の向き（管球→検出器）</span>
+      </div>
+      <button class="btn primary" id="back">透視に戻る</button>
+      <div class="hint" style="text-align:center">この欄をタップすると閉じます</div>
+    </div>
+  </main>
+
+  <!-- 右：針 -->
+  <aside class="panel" aria-label="針の操作">
+    <div class="sec">
+      <div class="lab">刺入点</div>
+      <div class="row">
+        <button class="btn" id="preR">右肋間</button>
+        <button class="btn" id="preE">心窩部</button>
+      </div>
+      <div class="row">
+        <button class="btn" id="nzU" aria-label="刺入点を1 cm頭側へ">頭側</button>
+        <button class="btn" id="nzD" aria-label="刺入点を1 cm尾側へ">尾側</button>
+        <button class="btn" id="nsA">—</button>
+        <button class="btn" id="nsB">—</button>
+      </div>
+      <p class="hint" style="margin:0">ボタンは1 cmずつ体表に沿って移動（針の角度は保持）。透視画像のタップでも設定できます。いずれも針を抜いた状態のみ。</p>
+    </div>
+    <div class="sec">
+      <div class="row between"><span class="lab">針の角度</span><span class="val" id="angVal">水平 0° / 頭尾 0°</span></div>
+      <label class="hint" for="yaw">水平面の振り</label>
+      <input type="range" id="yaw" min="-60" max="60" step="1" value="0">
+      <label class="hint" for="pitch">頭尾方向（＋が頭側）</label>
+      <input type="range" id="pitch" min="-60" max="60" step="1" value="0">
+      <div class="row">
+        <button class="btn" id="gyroBtn">傾きで操作</button>
+        <button class="btn" id="lockBtn" disabled>固定</button>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="row between"><span class="lab">針を進める／引く</span><span class="val" id="depVal">0.0 cm</span></div>
+      <input type="range" id="depth" min="0" max="15" step="0.1" value="0" aria-label="針の深さ">
+      <div class="chip" id="status">刺入点を選んでください</div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="go3d">3Dで答え合わせ</button>
+      <button class="btn" id="reset">針を抜く</button>
+    </div>
+  </aside>
+</div>
+
+<div class="rotate" id="rotate" hidden>
+  <div class="big">横向きにしてください</div>
+  <p class="hint">このトレーナーはスマホを横持ちで使う設計です。</p>
+  <button class="btn" id="rotOk" style="flex:0 0 auto">このまま使う</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+"use strict";
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const $=id=>document.getElementById(id);
+const DEG=Math.PI/180;
+
+/* ===== 座標系（cm）: x=患者の左(+)、y=腹側(+)、z=頭側(+)。仰臥位 ===== */
+const BODY={a:16,b:11,z0:-22,z1:20};
+const ISO=V(-3,0.5,-1);      // C-armの回転中心
+const SOD=75;                // 管球〜回転中心（血管造影装置の一般的な値に寄せた概数）
+const SID=115;               // 管球〜検出器
+const HALF_H=10.5;           // 回転中心での視野の縦半分
+const NEEDLE_LEN=15;
+
+const LIVER=[ {c:V(-6,0,0), r:V(9.5,7.5,8.5)}, {c:V(3,4.5,-0.5), r:V(8.5,5.5,7.5)} ];
+
+const DUCTS=[
+ {id:'総胆管',  r:.50, pts:[V(-0.5,2,-12),V(-0.8,1.6,-7),V(-1,1.2,-3.5),V(-1.2,1,-2.2)]},
+ {id:'右肝管',  r:.55, pts:[V(-1.2,1,-2.2),V(-3,0.6,-1.8),V(-4.5,0.5,-1.5)]},
+ {id:'前区域枝',r:.45, pts:[V(-4.5,0.5,-1.5),V(-5.3,1.1,-1.1),V(-6,1.6,-0.8)]},
+ {id:'B8',     r:.40, pts:[V(-6,1.6,-0.8),V(-7,2.4,2),V(-8,3,5)]},
+ {id:'B5',     r:.40, pts:[V(-6,1.6,-0.8),V(-7.8,2.6,-2.5),V(-9,3.5,-4)]},
+ {id:'後区域枝',r:.45, pts:[V(-4.5,0.5,-1.5),V(-5.8,-0.3,-1.1),V(-7,-1,-0.8)]},
+ {id:'B7',     r:.40, pts:[V(-7,-1,-0.8),V(-9.5,-2.3,1.8),V(-11,-3,4)]},
+ {id:'B6',     r:.40, pts:[V(-7,-1,-0.8),V(-10,-1.8,-2.8),V(-12,-2,-5)]},
+ {id:'左肝管',  r:.55, pts:[V(-1.2,1,-2.2),V(0.5,1.8,-1.8),V(2.5,2.4,-1)]},
+ {id:'B4',     r:.35, pts:[V(0.8,2,-1.8),V(1,3.2,-1.2),V(1.2,4,-0.5)]},
+ {id:'B3',     r:.40, pts:[V(2.5,2.4,-1),V(5,3.6,0),V(7,4.5,1)]},
+ {id:'B2',     r:.40, pts:[V(2.5,2.4,-1),V(5.5,3,2),V(8,3.5,4)]},
+];
+DUCTS.forEach(d=>{d.curve=new THREE.CatmullRomCurve3(d.pts);d.samples=d.curve.getSpacedPoints(40);});
+
+/* 門脈・肝動脈：胆管に伴走（3D答え合わせのみ表示） */
+const PV=[{r:.75,pts:[V(2,-1.2,-10),V(0.5,-0.6,-6),V(-1,-0.1,-2.8)]}];
+const HA=[{r:.17,pts:[V(2.5,0.6,-9),V(0.4,1.2,-5.5),V(-0.6,1.6,-2.6)]}];
+DUCTS.slice(1).forEach(d=>{
+  PV.push({r:d.r+.2,pts:d.pts.map(p=>p.clone().add(V(0,-1.0,-0.35)))});
+  HA.push({r:.15,pts:d.pts.map(p=>p.clone().add(V(0.45,0.45,0.1)))});
+});
+PV[1].pts[0]=V(-1,-0.1,-2.8); PV[PV.length-4].pts[0]=V(-1,-0.1,-2.8);
+
+/* 肋骨：背側→外側→腹側へ回りながら前方で下がる */
+const RIBS=[];
+[14,10.5,7,3.5,0,-3.5,-7,-10.5].forEach((z0,i)=>{
+  const phi1=i<6?0.82*Math.PI:(i===6?0.6*Math.PI:0.45*Math.PI), phi0=0.12*Math.PI;
+  [-1,1].forEach(s=>{
+    const pts=[];
+    for(let k=0;k<=16;k++){
+      const ph=phi0+(phi1-phi0)*k/16;
+      pts.push(V(s*(BODY.a-1.2)*Math.sin(ph), -(BODY.b-1.2)*Math.cos(ph), z0-6*(ph-phi0)/Math.PI));
+    }
+    const curve=new THREE.CatmullRomCurve3(pts);
+    RIBS.push({curve,samples:curve.getSpacedPoints(90),r:.6});
+  });
+});
+const SPINE=[];for(let z=-17;z<=17;z+=3.1)SPINE.push(z);
+
+/* ===== 幾何計算 ===== */
+function segDist(p,a,b){
+  const ab=b.clone().sub(a), t=Math.max(0,Math.min(1,p.clone().sub(a).dot(ab)/ab.lengthSq()));
+  return p.distanceTo(a.clone().addScaledVector(ab,t));
+}
+function polyDist(p,s){let m=1e9;for(let i=0;i<s.length-1;i++){const d=segDist(p,s[i],s[i+1]);if(d<m)m=d;}return m;}
+let DUCT_K=6/8;   // 初期値：末梢枝6 mm
+const DUCT_MESHES=[];
+function nearestDuct(p){let best=null;DUCTS.forEach(d=>{const dd=polyDist(p,d.samples),r=d.r*DUCT_K;if(!best||dd-r<best.gap)best={duct:d,dist:dd,gap:dd-r};});return best;}
+function inLiver(p){return LIVER.some(l=>{const q=p.clone().sub(l.c);return (q.x/l.r.x)**2+(q.y/l.r.y)**2+(q.z/l.r.z)**2<=1;});}
+function inBody(p){return (p.x/BODY.a)**2+(p.y/BODY.b)**2<=1;}
+function hitsRib(p){return RIBS.some(r=>polyDist(p,r.samples)<r.r+0.08);}
+function surfaceNormal(p){return V(p.x/BODY.a**2,p.y/BODY.b**2,0).normalize();}
+
+/* ===== 状態 ===== */
+const S={theta:0,entry:null,normal:null,yaw:0,pitch:0,depth:0,eff:0,blocked:false,mode:'fluoro',gyro:false,locked:false,tgt:'B3',tgtD:7,gTgt:false,gExt:false};
+/* ターゲット：指定した枝の末梢寄り（曲線の75%地点）に置く球 */
+function target(){
+  if(!S.tgt)return null;
+  const d=DUCTS.find(x=>x.id===S.tgt);
+  return {c:d.curve.getPointAt(0.75),r:S.tgtD/20};
+}
+
+function needleDir(){
+  const b=S.normal.clone().negate(), c=Math.cos(S.yaw*DEG), s=Math.sin(S.yaw*DEG);
+  const h=V(b.x*c-b.y*s,b.x*s+b.y*c,0).normalize();
+  return h.multiplyScalar(Math.cos(S.pitch*DEG)).add(V(0,0,Math.sin(S.pitch*DEG))).normalize();
+}
+function computeDepth(){
+  S.blocked=false;S.eff=S.depth;
+  if(!S.entry)return;
+  const d=needleDir();
+  for(let t=0.1;t<=S.depth+1e-6;t+=0.1){
+    const p=S.entry.clone().addScaledVector(d,t);
+    if(inBody(p)&&hitsRib(p)){S.eff=Math.max(0,t-0.1);S.blocked=true;return;}
+  }
+}
+function tip(){return S.entry.clone().addScaledVector(needleDir(),S.eff);}
+
+/* ===== 透視レンダリング（乗算合成で減弱を表現） ===== */
+const fCan=$('fluoro');
+const fr=new THREE.WebGLRenderer({canvas:fCan,antialias:true});
+fr.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+fr.setClearColor(new THREE.Color(.80,.80,.79));
+const fScene=new THREE.Scene();
+const fCam=new THREE.PerspectiveCamera(2*Math.atan(HALF_H/SOD)/DEG,1.4,1,400);
+fCam.up.set(0,0,1);
+function xr(v){
+  return new THREE.MeshBasicMaterial({color:new THREE.Color(v,v,v),transparent:true,depthTest:false,depthWrite:false,
+    blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,side:THREE.FrontSide});
+}
+function tube(c,r,seg){return new THREE.TubeGeometry(c,seg||48,r,12,false);}
+const G={};
+G.body=new THREE.CylinderGeometry(1,1,BODY.z1-BODY.z0,64);
+G.sphere=new THREE.SphereGeometry(1,48,32);
+G.vert=new THREE.CylinderGeometry(2.3,2.3,2.5,24);
+G.spin=new THREE.BoxGeometry(0.9,2.6,1.6);
+G.ducts=DUCTS.map(d=>tube(d.curve,d.r*DUCT_K));
+G.ribs=RIBS.map(r=>tube(r.curve,r.r,80));
+G.needle=new THREE.CylinderGeometry(0.06,0.06,NEEDLE_LEN,8);
+G.hub=new THREE.CylinderGeometry(0.45,0.45,1.6,16);
+
+function placeBody(m){m.rotation.x=Math.PI/2;m.scale.set(BODY.a,1,BODY.b);m.position.set(0,0,(BODY.z0+BODY.z1)/2);}
+function addAnatomy(scene,mat){
+  const body=new THREE.Mesh(G.body,mat.body);placeBody(body);scene.add(body);
+  LIVER.forEach(l=>{const m=new THREE.Mesh(G.sphere,mat.liver);m.position.copy(l.c);m.scale.copy(l.r);scene.add(m);});
+  G.ribs.forEach(g=>scene.add(new THREE.Mesh(g,mat.rib||mat.bone)));
+  SPINE.forEach(z=>{
+    const v=new THREE.Mesh(G.vert,mat.spine||mat.bone);v.rotation.x=Math.PI/2;v.position.set(0,-6.5,z);scene.add(v);
+    const s=new THREE.Mesh(G.spin,mat.spine||mat.bone);s.position.set(0,-10,z-0.3);scene.add(s);
+  });
+  G.ducts.forEach(g=>{const m=new THREE.Mesh(g,mat.duct);scene.add(m);DUCT_MESHES.push(m);});
+}
+/* 骨：背側(y=-9)ほど濃く、腹側(y=+9)ほど淡い乗算係数。減弱を奥行きで不均一にして前後関係の手がかりにする */
+const boneU={vPost:{value:.58},vAnt:{value:.90}};
+function setBoneDepth(k){boneU.vPost.value=.70-.12*k;boneU.vAnt.value=Math.min(.97,.70+.20*k);}
+setBoneDepth(0.5);   // 背側／腹側の濃淡差は50%で固定
+const boneMat=new THREE.ShaderMaterial({uniforms:boneU,transparent:true,depthTest:false,depthWrite:false,
+  blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,side:THREE.FrontSide,
+  vertexShader:'varying float vy;void main(){vec4 w=modelMatrix*vec4(position,1.0);vy=w.y;gl_Position=projectionMatrix*viewMatrix*w;}',
+  fragmentShader:'uniform float vPost;uniform float vAnt;varying float vy;void main(){float t=clamp((vy+9.0)/18.0,0.0,1.0);float v=mix(vPost,vAnt,t);gl_FragColor=vec4(v,v,v,1.0);}'});
+const fMat={body:xr(.93),liver:xr(.94),spine:boneMat,rib:boneMat,duct:xr(.42)};
+addAnatomy(fScene,fMat);
+const fNeedle=new THREE.Mesh(G.needle,xr(.18)), fHub=new THREE.Mesh(G.hub,xr(.45));
+fScene.add(fNeedle,fHub);fNeedle.visible=fHub.visible=false;
+const fTgt=new THREE.Mesh(new THREE.RingGeometry(0.86,1,64),new THREE.MeshBasicMaterial({color:0xf2a93b,transparent:true,opacity:.95,depthTest:false,depthWrite:false,side:THREE.DoubleSide}));
+fTgt.renderOrder=10;fScene.add(fTgt);
+const fTgtDot=new THREE.Mesh(new THREE.CircleGeometry(1,48),new THREE.MeshBasicMaterial({color:0xf2a93b,transparent:true,opacity:.14,depthTest:false,depthWrite:false,side:THREE.DoubleSide}));
+fTgtDot.renderOrder=9;fScene.add(fTgtDot);
+/* ガイド線：琥珀＝刺入点→ターゲット中心、白＝針先からの延長線 */
+function dashLine(color){
+  const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,0,1)]),
+    new THREE.LineDashedMaterial({color,dashSize:.6,gapSize:.4,transparent:true,opacity:.95,depthTest:false,depthWrite:false}));
+  l.renderOrder=11;l.visible=false;return l;
+}
+function placeGuides(gT,gE){
+  const tg=target();
+  gT.visible=S.gTgt&&!!tg&&!!S.entry;
+  if(gT.visible){gT.geometry.setFromPoints([S.entry,tg.c]);gT.computeLineDistances();}
+  gE.visible=S.gExt&&!!S.entry;
+  if(gE.visible){const t=tip();gE.geometry.setFromPoints([t,t.clone().addScaledVector(needleDir(),15)]);gE.computeLineDistances();}
+}
+const fGT=dashLine(0xf2a93b),fGE=dashLine(0xffffff);fScene.add(fGT,fGE);
+
+function placeNeedle(n,h){
+  if(!S.entry){n.visible=h.visible=false;return;}
+  const d=needleDir(),t=tip(),q=new THREE.Quaternion().setFromUnitVectors(V(0,1,0),d);
+  n.quaternion.copy(q);h.quaternion.copy(q);
+  n.position.copy(t.clone().addScaledVector(d,-NEEDLE_LEN/2));
+  h.position.copy(t.clone().addScaledVector(d,-NEEDLE_LEN-0.8));
+  n.visible=h.visible=true;
+}
+function beam(){const d=V(Math.sin(S.theta*DEG),Math.cos(S.theta*DEG),0);return {d,src:ISO.clone().addScaledVector(d,-SOD),det:ISO.clone().addScaledVector(d,SID-SOD)};}
+function angText(t){return t===0?'AP 0°':(t>0?'LAO ':'RAO ')+Math.abs(t)+'°';}
+
+function renderFluoro(){
+  const b=beam();
+  fCam.position.copy(b.src);fCam.lookAt(ISO);fCam.updateMatrixWorld();
+  placeNeedle(fNeedle,fHub);
+  const tg=target();
+  [fTgt,fTgtDot].forEach(m=>{
+    m.visible=!!tg;
+    if(tg){m.position.copy(tg.c);m.scale.setScalar(tg.r);m.quaternion.copy(fCam.quaternion);}
+  });
+  placeGuides(fGT,fGE);
+  fr.render(fScene,fCam);
+  // 方向マーカー：患者の右(R)／腹側(A)が画面のどちら側か
+  const right=V(1,0,0).applyQuaternion(fCam.quaternion);
+  const dR=right.dot(V(-1,0,0)), dA=right.dot(V(0,1,0));
+  let lab='R',dot=dR; if(Math.abs(dR)<0.5){lab='A';dot=dA;}
+  $('ovL').textContent=dot<0?lab:''; $('ovR').textContent=dot>0?lab:'';
+  $('ovTR').textContent=angText(S.theta);
+  $('ovBL').textContent='深さ '+S.eff.toFixed(1)+' cm';
+}
+
+/* ===== 3D答え合わせ ===== */
+let tr=null,tScene,tCam,tCtl,tNeedle,tHub,tTip,tBeam,tTgt,tGT,tGE;
+function init3D(){
+  const can=$('three');
+  tr=new THREE.WebGLRenderer({canvas:can,antialias:true});
+  tr.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  tr.setClearColor(0x0c1012);
+  tScene=new THREE.Scene();
+  /* 計算用の座標（x=左, y=腹側, z=頭側）は左手系なので、3D表示ではx軸を反転して実際の左右に直す。
+     （透視は放射線科の表示規約＝患者の右が画面の左、になるようこの座標のまま描いている） */
+  const root=new THREE.Group();root.scale.x=-1;tScene.add(root);
+  const T=ISO.clone();T.x=-T.x;   // 反転後の回転中心
+  tCam=new THREE.PerspectiveCamera(38,1.4,0.5,500);tCam.up.set(0,0,1);
+  tCam.position.copy(T.clone().add(V(16,56,20)));   // 腹側やや右・頭側から見下ろす
+  tScene.add(new THREE.AmbientLight(0xffffff,.55));
+  const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(30,50,60);tScene.add(dl);
+  const L=(c,o)=>new THREE.MeshLambertMaterial({color:c,transparent:o<1,opacity:o,depthWrite:o>=0.5,side:THREE.DoubleSide});
+  const bodyMat=new THREE.MeshBasicMaterial({color:0x8aa0a6,transparent:true,opacity:.05,depthWrite:false,side:THREE.DoubleSide});
+  addAnatomy(root,{body:bodyMat,liver:L(0xb9744f,.16),bone:L(0xddd6c6,.55),duct:L(0x4cc38a,1)});
+  /* 胸骨と肋軟骨（3Dのみ。透視ではほぼ写らないため描かない）。腊側の胸壁を閉じて前後を分かりやすくする */
+  const sy=BODY.b-1.4;
+  const st=new THREE.Mesh(new THREE.BoxGeometry(3,1,18),L(0xddd6c6,.55));st.position.set(0,sy,6);root.add(st);
+  const xi=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.8,2.5),L(0xddd6c6,1));xi.position.set(0,sy,-4.2);root.add(xi);
+  const cart=L(0x9fb4bd,.55);
+  [12.5,9,5.5,2,-1.5,-3.5].forEach((zs,i)=>{
+    [0,1].forEach(j=>{
+      const rib=RIBS[i*2+j],e=rib.curve.getPoint(1),s=Math.sign(e.x),m=V(s*(i<4?1.5:0.9),sy,zs);
+      const mid=V((e.x+m.x)/2,(e.y+m.y)/2+0.6,(e.z+m.z)/2-(i<4?0.6:0));
+      root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3([e,mid,m]),0.5,24),cart));
+    });
+  });
+  PV.forEach(p=>root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0x7a8ce0,1))));
+  HA.forEach(p=>root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0xe3573f,1))));
+  tNeedle=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,NEEDLE_LEN,10),L(0xf2f2ee,1));
+  tHub=new THREE.Mesh(G.hub,L(0x9aa4a8,1));
+  tTip=new THREE.Mesh(new THREE.SphereGeometry(0.32,20,14),new THREE.MeshBasicMaterial({color:0xf2d33b,side:THREE.DoubleSide}));
+  root.add(tNeedle,tHub,tTip);
+  tTgt=new THREE.Mesh(new THREE.SphereGeometry(1,32,20),new THREE.MeshLambertMaterial({color:0xf2a93b,transparent:true,opacity:.32,depthWrite:false,side:THREE.DoubleSide}));
+  root.add(tTgt);
+  tBeam=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,0,1)]),new THREE.LineBasicMaterial({color:0xf2a93b,transparent:true,opacity:.6}));
+  root.add(tBeam);
+  tGT=dashLine(0xf2a93b);tGE=dashLine(0xffffff);root.add(tGT,tGE);
+  /* 方向ラベル */
+  const label=(txt,p)=>{
+    const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
+    x.fillStyle='rgba(12,16,18,.75)';x.beginPath();x.arc(64,64,52,0,7);x.fill();
+    x.fillStyle='#e2e9e6';x.font='600 64px "Zen Kaku Gothic New",sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(txt,64,68);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));
+    sp.position.copy(p);sp.scale.set(2.6,2.6,1);sp.renderOrder=20;root.add(sp);
+  };
+  label('R',V(-BODY.a-2.5,0,-1));label('L',V(BODY.a+2.5,0,-1));
+  label('頭',V(-3,0,BODY.z1+1));label('腹',V(-3,BODY.b+2.5,-1));
+  tCtl=new THREE.OrbitControls(tCam,can);tCtl.target.copy(T);tCtl.enableDamping=true;tCtl.update();
+  (function loop(){if(S.mode==='3d'){tCtl.update();tr.render(tScene,tCam);}requestAnimationFrame(loop);})();
+}
+function update3D(){
+  placeNeedle(tNeedle,tHub);
+  if(S.entry){tTip.position.copy(tip());tTip.visible=true;}else tTip.visible=false;
+  const b=beam();tBeam.geometry.setFromPoints([b.src,b.det]);
+  const tg=target();tTgt.visible=!!tg;if(tg){tTgt.position.copy(tg.c);tTgt.scale.setScalar(tg.r);}
+  placeGuides(tGT,tGE);
+}
+
+/* ===== 判定 ===== */
+/* 針と「中枢側へ向かう胆管」のなす角。各枝はpts[0]が下流側（肝門側、総胆管は乳頭側）
+   0°＝針が下流へまっすぐ向く、90°＝胆管に直交、90°超＝末梢向き */
+function centralAngle(d,p){
+  let bi=0,bd=1e9;for(let i=0;i<d.samples.length-1;i++){const x=segDist(p,d.samples[i],d.samples[i+1]);if(x<bd){bd=x;bi=i;}}
+  const down=d.samples[bi].clone().sub(d.samples[bi+1]).normalize();
+  return Math.round(Math.acos(Math.max(-1,Math.min(1,needleDir().dot(down))))/DEG);
+}
+function judge(){
+  if(!S.entry)return {cls:'',txt:'刺入点を選んでください'};
+  if(S.blocked)return {cls:'warn',txt:'肋骨に当たっています'};
+  if(S.eff<=0)return {cls:'',txt:'体表（未刺入）'};
+  const t=tip(),n=nearestDuct(t),tg=target(),inT=tg&&t.distanceTo(tg.c)<=tg.r,ts=inT?'・ターゲット内':'';
+  if(n.gap<=0)return {cls:'good',txt:'胆管内（'+n.duct.id+'）・中枢向き '+centralAngle(n.duct,t)+'°'+ts,n,inT};
+  if(inLiver(t))return {cls:inT?'good':'',txt:'肝実質内'+ts,n,inT};
+  return {cls:'bad',txt:inBody(t)?'肝外':'体外',n,inT};
+}
+function tgtNote(){
+  const tg=target();if(!tg||!S.entry)return '';
+  const mm=Math.max(0,(tip().distanceTo(tg.c)-tg.r)*10).toFixed(0);
+  return mm==='0'?'針先はターゲット（'+S.tgt+'）の中です。':'ターゲット（'+S.tgt+'）の縁まで約'+mm+' mmです。';
+}
+function resultText(){
+  if(!S.entry)return ['未穿刺','刺入点を選んで針を進めてから確認してください。'];
+  const j=judge(),n=j.n||nearestDuct(tip());
+  if(j.cls==='good')return ['成功：'+n.duct.id+'に入っています','針先は'+n.duct.id+'の内腔にあります。針と中枢側胆管のなす角は約'+centralAngle(n.duct,tip())+'°です（0°で針が肝門側へまっすぐ向き、90°で胆管に直交、90°を超えると末梢向き）。'+tgtNote()+'斜位で見たときの前後関係を3Dと見比べてください。'];
+  const mm=Math.max(0,n.gap*10).toFixed(0);
+  return ['胆管外：'+j.txt,'最も近い胆管は'+n.duct.id+'で、針先から内腔まで約'+mm+' mmです。'+tgtNote()+(S.blocked?'途中で肋骨に当たって止まっています。':'')];
+}
+
+/* ===== UI ===== */
+function syncUI(){
+  computeDepth();
+  $('angBig').textContent=angText(S.theta);
+  $('theta').value=S.theta;
+  $('yaw').value=S.yaw;$('pitch').value=S.pitch;
+  $('angVal').textContent='水平 '+S.yaw+'° / 頭尾 '+S.pitch+'°';
+  $('depVal').textContent=S.eff.toFixed(1)+' cm'+(S.blocked?'（止）':'');
+  const j=judge(),st=$('status');st.className='chip '+j.cls;st.textContent=j.txt;
+  updateNudgeLabels();
+  renderFluoro();
+  if(tr)update3D();
+}
+let toastT;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600);}
+
+function setEntry(p){
+  S.entry=p;S.normal=surfaceNormal(p);S.yaw=0;S.pitch=0;S.depth=0;$('depth').value=0;
+  if(hitsRib(p.clone().addScaledVector(S.normal,-1.2)))toast('この刺入点の直下に肋骨があります');
+  syncUI();
+}
+/* 刺入点の微調整：頭尾方向と、体表（楕円）に沿った周方向 */
+function ellPhi(p){return Math.atan2(p.y/BODY.b,p.x/BODY.a);}
+function circTan(phi){return V(-BODY.a*Math.sin(phi),BODY.b*Math.cos(phi),0).normalize();}
+function circLabel(t){return Math.abs(t.x)>=Math.abs(t.y)?(t.x<0?'患者右':'患者左'):(t.y>0?'腹側':'背側');}
+function updateNudgeLabels(){
+  if(!S.entry){$('nsA').textContent='—';$('nsB').textContent='—';return;}
+  const t=circTan(ellPhi(S.entry));$('nsA').textContent=circLabel(t.clone().negate());$('nsB').textContent=circLabel(t);
+}
+function nudge(dz,ds){
+  if(!S.entry){toast('先に刺入点を選んでください');return;}
+  if(S.depth>0){toast('針を抜いてから刺入点を変えてください');return;}
+  let phi=ellPhi(S.entry);
+  if(ds){const L=Math.hypot(BODY.a*Math.sin(phi),BODY.b*Math.cos(phi));phi+=ds/L;}
+  const p=V(BODY.a*Math.cos(phi),BODY.b*Math.sin(phi),Math.max(BODY.z0+1,Math.min(BODY.z1-1,S.entry.z+dz)));
+  S.entry=p;S.normal=surfaceNormal(p);
+  if(hitsRib(p.clone().addScaledVector(S.normal,-1.2)))toast('この刺入点の直下に肋骨があります');
+  syncUI();
+}
+$('nzU').onclick=()=>nudge(1,0);
+$('nzD').onclick=()=>nudge(-1,0);
+$('nsA').onclick=()=>nudge(0,-1);
+$('nsB').onclick=()=>nudge(0,1);
+function preset(kind){
+  if(S.depth>0){toast('針を抜いてから刺入点を変えてください');return;}
+  if(S.tgt){S.tgt=kind==='R'?'B6':'B3';$('tgt').value=S.tgt;}
+  if(kind==='R'){const y=-1;setEntry(V(-BODY.a*Math.sqrt(1-(y/BODY.b)**2),y,-4.0));}
+  else{const x=2;setEntry(V(x,BODY.b*Math.sqrt(1-(x/BODY.a)**2),-6));}
+}
+$('preR').onclick=()=>preset('R');
+$('preE').onclick=()=>preset('E');
+
+/* 透視画像タップ → 光線と体表（楕円柱）の検出器側の交点 */
+fCan.addEventListener('click',e=>{
+  if(S.mode!=='fluoro')return;
+  if(S.depth>0){toast('針を抜いてから刺入点を変えてください');return;}
+  const r=fCan.getBoundingClientRect();
+  const ndc=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+  const rc=new THREE.Raycaster();rc.setFromCamera(ndc,fCam);
+  const o=rc.ray.origin,d=rc.ray.direction,a2=BODY.a**2,b2=BODY.b**2;
+  const A=d.x*d.x/a2+d.y*d.y/b2,B=2*(o.x*d.x/a2+o.y*d.y/b2),C=o.x*o.x/a2+o.y*o.y/b2-1,disc=B*B-4*A*C;
+  if(disc<0||A<1e-9){toast('体の外です。体表の上をタップしてください');return;}
+  const t=(-B+Math.sqrt(disc))/(2*A),p=o.clone().addScaledVector(d,t);
+  if(p.z<BODY.z0+1||p.z>BODY.z1-1){toast('視野の外です');return;}
+  setEntry(p);
+});
+
+const th=v=>{S.theta=Math.max(-90,Math.min(90,v));syncUI();};
+$('theta').oninput=e=>th(+e.target.value);
+$('thMinus').onclick=()=>th(S.theta-5);
+$('thPlus').onclick=()=>th(S.theta+5);
+$('thZero').onclick=()=>th(0);
+/* 胆管の太さ：末梢枝（半径0.4 cm＝径8 mm）を基準に全枝を拡縮し、形状を作り直す */
+$('dw').oninput=e=>{
+  DUCT_K=+e.target.value/8;$('dwVal').textContent=e.target.value+' mm';
+  const n=DUCTS.length,old=G.ducts;G.ducts=DUCTS.map(d=>tube(d.curve,d.r*DUCT_K));
+  DUCT_MESHES.forEach((m,i)=>{m.geometry=G.ducts[i%n];});old.forEach(g=>g.dispose());
+  syncUI();
+};
+
+function needEntry(){if(!S.entry){toast('先に刺入点を選んでください');syncUI();return true;}return false;}
+$('yaw').oninput=e=>{if(needEntry())return;S.yaw=+e.target.value;syncUI();};
+$('pitch').oninput=e=>{if(needEntry())return;S.pitch=+e.target.value;syncUI();};
+$('depth').oninput=e=>{if(needEntry()){e.target.value=0;return;}S.depth=+e.target.value;syncUI();if(S.blocked)e.target.value=S.eff;S.depth=S.eff;};
+['gTgt','gExt'].forEach(k=>{$(k).onclick=()=>{
+  S[k]=!S[k];$(k).classList.toggle('on',S[k]);$(k).setAttribute('aria-pressed',S[k]);
+  if(k==='gTgt'&&S[k]&&!S.tgt)toast('ターゲットを選ぶと表示されます');
+  else if(S[k]&&!S.entry)toast('刺入点を選ぶと表示されます');
+  syncUI();};});
+$('tgt').onchange=e=>{S.tgt=e.target.value;syncUI();};
+$('tgtSize').oninput=e=>{S.tgtD=+e.target.value;$('tgtVal').textContent=S.tgtD+' mm';syncUI();};
+$('reset').onclick=()=>{S.depth=0;$('depth').value=0;syncUI();};
+
+/* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
+let base=null,gotEvent=false;
+function onOri(e){
+  if(e.beta==null)return;gotEvent=true;
+  const ang=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
+  let h,v;
+  if(ang===90){h=e.beta;v=-e.gamma;}else if(ang===270||ang===-90){h=-e.beta;v=e.gamma;}else{h=e.gamma;v=e.beta;}
+  if(!base){base={h,v};toast('今の姿勢を0°にしました');}
+  if(S.locked||!S.entry)return;
+  S.yaw=Math.round(Math.max(-60,Math.min(60,h-base.h)));
+  S.pitch=Math.round(Math.max(-60,Math.min(60,v-base.v)));
+  syncUI();
+}
+$('gyroBtn').onclick=async()=>{
+  if(S.gyro){base=null;toast('姿勢を合わせ直します');return;}
+  try{
+    if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+      const r=await DeviceOrientationEvent.requestPermission();if(r!=='granted')throw 0;
+    }
+    window.addEventListener('deviceorientation',onOri);
+    setTimeout(()=>{
+      if(!gotEvent){window.removeEventListener('deviceorientation',onOri);toast('この表示では傾きセンサーが使えません。スライダーで操作してください');return;}
+      S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockBtn').disabled=false;
+    },1500);
+  }catch(_){toast('傾きセンサーの利用が許可されませんでした。スライダーで操作してください');}
+};
+$('lockBtn').onclick=()=>{S.locked=!S.locked;$('lockBtn').classList.toggle('on',S.locked);$('lockBtn').textContent=S.locked?'固定中（解除）':'固定';};
+
+/* 表示切替 */
+const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR'];
+$('go3d').onclick=()=>{
+  if(!tr)init3D();
+  S.mode='3d';fxEls.forEach(id=>$(id).hidden=true);$('toast').hidden=true;
+  $('three').hidden=false;$('result').hidden=false;$('resMini').hidden=true;
+  const [t,b]=resultText();$('resTitle').textContent=t;$('resBody').textContent=b;
+  resize();update3D();
+};
+function backToFluoro(e){if(e)e.stopPropagation();S.mode='fluoro';$('three').hidden=true;$('result').hidden=true;$('resMini').hidden=true;fxEls.forEach(id=>$(id).hidden=false);resize();}
+$('back').onclick=backToFluoro;$('back2').onclick=backToFluoro;
+$('result').onclick=()=>{$('result').hidden=true;$('resMini').hidden=false;};
+$('resShow').onclick=()=>{$('resMini').hidden=true;$('result').hidden=false;};
+
+/* ノイズ（静的） */
+(function(){const c=document.createElement('canvas');c.width=c.height=160;const x=c.getContext('2d'),im=x.createImageData(160,160);
+  for(let i=0;i<im.data.length;i+=4){const v=Math.random()*255;im.data[i]=im.data[i+1]=im.data[i+2]=v;im.data[i+3]=255;}
+  x.putImageData(im,0,0);$('noise').style.backgroundImage='url('+c.toDataURL()+')';})();
+
+/* サイズ・向き */
+function resize(){
+  const r=$('viewer').getBoundingClientRect(),w=Math.max(10,r.width),h=Math.max(10,r.height);
+  fr.setSize(w,h,false);fCam.aspect=w/h;fCam.updateProjectionMatrix();renderFluoro();
+  if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
+}
+new ResizeObserver(resize).observe($('viewer'));
+let rotDismissed=false;
+function checkRot(){$('rotate').hidden=rotDismissed||!(window.innerHeight>window.innerWidth&&window.innerWidth<700);}
+$('rotOk').onclick=()=>{rotDismissed=true;checkRot();};
+window.addEventListener('resize',checkRot);checkRot();
+
+resize();syncUI();
+})();
+</script>
