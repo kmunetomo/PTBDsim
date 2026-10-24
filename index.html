@@ -30,14 +30,14 @@ body{
   background:var(--bg);color:var(--fg);font-family:var(--f-ui);margin:0;overflow:hidden;
   padding-left:max(16px,env(safe-area-inset-left,0px));
   padding-right:max(16px,env(safe-area-inset-right,0px));
-  padding-block:8px;box-sizing:border-box;
+  padding-block:8px;padding-bottom:max(8px,env(safe-area-inset-bottom,0px));box-sizing:border-box;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 .app{display:grid;grid-template-columns:minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
 .maincol{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
 .maincol .viewer{flex:1 1 auto}
-.cbar{flex:0 0 auto;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 6px}
+.cbar{position:absolute;left:8px;right:8px;bottom:max(14%,40px);display:flex;align-items:center;gap:6px;background:rgba(20,26,29,.82);border:1px solid var(--line);border-radius:10px;padding:4px 6px;z-index:2}
 .cbar .btn{flex:0 0 auto;min-height:30px;padding:3px 8px;font-size:12px}
 .cbar input[type=range]{flex:1 1 auto;min-width:60px;height:30px}
 .cang{font-family:var(--f-mono);font-size:13px;font-weight:500;min-width:4.8em;text-align:center;font-variant-numeric:tabular-nums}
@@ -75,10 +75,10 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 .ov{position:absolute;font-family:var(--f-mono);font-size:12.5px;color:#f4f4f0;text-shadow:0 1px 2px #000;pointer-events:none;font-variant-numeric:tabular-nums}
 .ov.tl{top:8px;left:10px}
 .ov.tr{top:8px;right:10px;text-align:right}
-.ov.bl{bottom:8px;left:10px}
+.ov.bl{top:28px;left:10px}
 .ov.side{top:50%;transform:translateY(-50%);font-size:17px;font-weight:500}
 .lamp{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle;box-shadow:0 0 8px var(--accent)}
-.toast{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(12,16,18,.88);border:1px solid var(--line);color:var(--fg);padding:6px 12px;border-radius:8px;font-size:12.5px;max-width:80%;text-align:center}
+.toast{position:absolute;left:50%;top:44px;z-index:3;transform:translateX(-50%);background:rgba(12,16,18,.88);border:1px solid var(--line);color:var(--fg);padding:6px 12px;border-radius:8px;font-size:12.5px;max-width:80%;text-align:center}
 
 .result{position:absolute;left:8px;top:8px;max-width:min(320px,62%);max-height:calc(100% - 16px);overflow-y:auto;background:rgba(12,16,18,.86);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;cursor:pointer}
 .result h2{margin:0;font-size:15px;font-weight:700;text-wrap:balance}
@@ -127,6 +127,15 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <div class="ov side" id="ovL" style="left:10px">R</div>
     <div class="ov side" id="ovR" style="right:10px"></div>
     <div class="toast" id="toast" hidden></div>
+    <div class="cbar" id="cbar" aria-label="C-armの角度">
+      <div class="cang" id="angBig">AP 0°</div>
+      <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
+      <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
+      <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
+      <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
+      <button class="btn" id="gyroMode" hidden aria-label="傾き操作の対象を切り替え">傾き:針</button>
+      <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
+    </div>
 
     <canvas id="three" hidden aria-label="3D答え合わせ。ドラッグで回転、ピンチで拡大"></canvas>
     <div class="resmini row" id="resMini" hidden>
@@ -149,14 +158,6 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
       <div class="hint" style="text-align:center">この欄をタップすると閉じます</div>
     </div>
   </main>
-  <div class="cbar" aria-label="C-armの角度">
-    <div class="cang" id="angBig">AP 0°</div>
-    <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
-    <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
-    <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
-    <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
-    <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
-  </div>
   </div>
 
   <!-- 右：針 -->
@@ -216,7 +217,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが出ます。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは左右の傾きでLAO/RAOが回ります。HTTPSのページを直接開いたときのみ動作します。</p>
   </div>
   <div class="sec">
     <div class="lab">使い方</div>
@@ -246,11 +247,11 @@ const DEG=Math.PI/180;
 
 /* ===== 座標系（cm）: x=患者の左(+)、y=腹側(+)、z=頭側(+)。仰臥位 ===== */
 const BODY={a:16,b:11,z0:-22,z1:20};
-const ISO=V(-8,0.5,-1);      // C-armの回転中心（患者の右寄り。右肋間から刺した針の後端まで視野に入れるため）
+const ISO=V(-7,0.5,-2.5);      // C-armの回転中心（患者の右寄り。右肋間から刺した針の後端まで視野に入れるため）
 const SOD=75;                // 管球〜回転中心（血管造影装置の一般的な値に寄せた概数）
 const SID=115;               // 管球〜検出器
 const HALF_H=8;              // 回転中心での視野の縦半分（胆管の上下端＋余白。頭尾方向は狭めて拡大）
-const HALF_W=19;             // 回転中心での視野の横半分（正面で患者右は体表から約11 cm外側、左は左葉外縁まで）
+const HALF_W=20;             // 回転中心での視野の横半分（正面で患者右は体表から約11 cm外側、左は左葉外縁まで）
 const NEEDLE_LEN=15;
 
 const LIVER=[ {c:V(-6,0,0), r:V(9.5,7.5,8.5)}, {c:V(3,4.5,-0.5), r:V(8.5,5.5,7.5)} ];
@@ -330,7 +331,7 @@ function hitWhat(p){
 function surfaceNormal(p){return V(p.x/BODY.a**2,p.y/BODY.b**2,0).normalize();}
 
 /* ===== 状態 ===== */
-const S={theta:0,entry:null,normal:null,yaw:0,pitch:0,depth:0,eff:0,blocked:false,mode:'fluoro',gyro:false,locked:false,tgt:'B3',tgtD:7,gTgt:false,gExt:false};
+const S={theta:0,entry:null,normal:null,yaw:0,pitch:0,depth:0,eff:0,blocked:false,mode:'fluoro',gyro:false,locked:false,tgt:'B3',tgtD:7,gyroMode:'needle',gTgt:false,gExt:false};
 /* ターゲット：指定した枝の末梢寄り（曲線の75%地点）に置く球 */
 function target(){
   if(!S.tgt)return null;
@@ -637,6 +638,11 @@ function onOri(e){
   if(ang===90){h=e.beta;v=-e.gamma;}else if(ang===270||ang===-90){h=-e.beta;v=e.gamma;}else{h=e.gamma;v=e.beta;}
   lastRaw={h,v};
   if(!base){base={h,v};toast('今の姿勢を0°にしました');}
+  if(S.gyroMode==='carm'){
+    const t=Math.round(Math.max(-90,Math.min(90,h-base.h)));
+    if(t!==S.theta){S.theta=t;syncUI();}
+    return;
+  }
   if(!S.entry||(S.lockY&&S.lockP))return;
   if(!S.lockY)S.yaw=Math.round(Math.max(-60,Math.min(60,h-base.h)));
   if(!S.lockP)S.pitch=Math.round(Math.max(-60,Math.min(60,v-base.v)));
@@ -648,6 +654,14 @@ function toggleLock(axis){
   S[k]=!S[k];$(id).classList.toggle('on',S[k]);$(id).setAttribute('aria-pressed',S[k]);$(id).textContent=S[k]?'固定中':'固定';
   if(!S[k]&&base&&lastRaw){if(axis==='y')base.h=lastRaw.h-S.yaw;else base.v=lastRaw.v-S.pitch;}
 }
+/* 傾き操作の対象切替：針の角度 ⇔ C-arm（LAO/RAOのみ）。切替時は基準を付け直し、今の角度から続けて動かす */
+$('gyroMode').onclick=()=>{
+  S.gyroMode=S.gyroMode==='carm'?'needle':'carm';
+  const c=S.gyroMode==='carm';
+  $('gyroMode').textContent=c?'傾き:C-arm':'傾き:針';$('gyroMode').classList.toggle('on',c);
+  if(base&&lastRaw){if(c)base.h=lastRaw.h-S.theta;else{base.h=lastRaw.h-S.yaw;base.v=lastRaw.v-S.pitch;}}
+  toast(c?'スマホを左右に傾けるとC-armが回ります':'スマホの傾きで針の角度を動かします');
+};
 $('lockY').onclick=()=>toggleLock('y');
 $('lockP').onclick=()=>toggleLock('p');
 $('gyroBtn').onclick=async()=>{
@@ -659,7 +673,7 @@ $('gyroBtn').onclick=async()=>{
     window.addEventListener('deviceorientation',onOri);
     setTimeout(()=>{
       if(!gotEvent){window.removeEventListener('deviceorientation',onOri);toast('この表示では傾きセンサーが使えません。スライダーで操作してください');return;}
-      S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockY').hidden=false;$('lockP').hidden=false;
+      S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockY').hidden=false;$('lockP').hidden=false;$('gyroMode').hidden=false;
     },1500);
   }catch(_){toast('傾きセンサーの利用が許可されませんでした。スライダーで操作してください');}
 };
@@ -672,7 +686,7 @@ $('scrim').onclick=()=>setSheet(false);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet').hidden)setSheet(false);});
 
 /* 表示切替 */
-const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR'];
+const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR','cbar'];
 $('go3d').onclick=()=>{
   if(!tr)init3D();
   S.mode='3d';fxEls.forEach(id=>$(id).hidden=true);$('toast').hidden=true;
@@ -694,7 +708,7 @@ $('resShow').onclick=()=>{$('resMini').hidden=true;$('result').hidden=false;};
 function resize(){
   const r=$('viewer').getBoundingClientRect(),w=Math.max(10,r.width),h=Math.max(10,r.height);
   fr.setSize(w,h,false);fCam.aspect=w/h;
-  // 回転中心で横38 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
+  // 回転中心で横40 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
   const halfH=Math.max(HALF_H,HALF_W/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
   fCam.updateProjectionMatrix();renderFluoro();
   if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
