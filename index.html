@@ -217,7 +217,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは、横持ちの画面を縦軸まわりにひねる動きの2倍でLAO/RAOが回ります（45°ひねるとLAO/RAO 90°）。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは、横持ちの画面を縦軸まわりにひねる動きの3倍でLAO/RAOが回ります（30°ひねるとLAO/RAO 90°）。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。HTTPSのページを直接開いたときのみ動作します。</p>
   </div>
   <div class="sec">
     <div class="lab">使い方</div>
@@ -631,7 +631,7 @@ $('reset').onclick=()=>{S.depth=0;$('depth').value=0;syncUI();};
 /* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
 let base=null,gotEvent=false;
 let lastRaw=null;
-const CARM_GAIN=2;   // C-armモードではひねりの2倍回す（45°ひねるとLAO/RAO 90°）
+const CARM_GAIN=3;   // C-armモードではひねりの3倍回す（30°ひねるとLAO/RAO 90°）
 /* ひねり（画面の縦軸まわりの回転）の角度。重力に対する傾きでは測れないため、
    端末の向き（alpha/beta/gamma）から回転行列を作り、スマホの長辺方向（端末y軸）の水平面上の向きを使う。
    長辺は横持ちで画面を寝かせても起こしても水平のままなので、ひねりだけを拾い、ハンドル操作や前後の傾きには鈍い */
