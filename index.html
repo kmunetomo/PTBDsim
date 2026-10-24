@@ -217,7 +217,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは左右の傾きでLAO/RAOが回ります。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">スマホの傾きで針の角度を動かします。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが、C-armバーに「傾き:針／C-arm」の切替ボタンが出ます。C-armモードでは左右の傾きの2倍でLAO/RAOが回ります（45°傾けるとLAO/RAO 90°）。HTTPSのページを直接開いたときのみ動作します。</p>
   </div>
   <div class="sec">
     <div class="lab">使い方</div>
@@ -631,6 +631,7 @@ $('reset').onclick=()=>{S.depth=0;$('depth').value=0;syncUI();};
 /* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
 let base=null,gotEvent=false;
 let lastRaw=null;
+const CARM_GAIN=2;   // C-armモードでは傾きの2倍回す（45°傾けるとLAO/RAO 90°）
 function onOri(e){
   if(e.beta==null)return;gotEvent=true;
   const ang=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
@@ -639,7 +640,7 @@ function onOri(e){
   lastRaw={h,v};
   if(!base){base={h,v};toast('今の姿勢を0°にしました');}
   if(S.gyroMode==='carm'){
-    const t=Math.round(Math.max(-90,Math.min(90,h-base.h)));
+    const t=Math.round(Math.max(-90,Math.min(90,(h-base.h)*CARM_GAIN)));
     if(t!==S.theta){S.theta=t;syncUI();}
     return;
   }
@@ -659,7 +660,7 @@ $('gyroMode').onclick=()=>{
   S.gyroMode=S.gyroMode==='carm'?'needle':'carm';
   const c=S.gyroMode==='carm';
   $('gyroMode').textContent=c?'傾き:C-arm':'傾き:針';$('gyroMode').classList.toggle('on',c);
-  if(base&&lastRaw){if(c)base.h=lastRaw.h-S.theta;else{base.h=lastRaw.h-S.yaw;base.v=lastRaw.v-S.pitch;}}
+  if(base&&lastRaw){if(c)base.h=lastRaw.h-S.theta/CARM_GAIN;else{base.h=lastRaw.h-S.yaw;base.v=lastRaw.v-S.pitch;}}
   toast(c?'スマホを左右に傾けるとC-armが回ります':'スマホの傾きで針の角度を動かします');
 };
 $('lockY').onclick=()=>toggleLock('y');
