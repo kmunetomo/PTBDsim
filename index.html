@@ -44,6 +44,8 @@ body{
 .row.between{justify-content:space-between}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .sl{display:grid;grid-template-columns:2.6em 1fr;align-items:center;gap:4px;font-size:11.5px;color:var(--muted)}
+.sl3{grid-template-columns:2.6em 1fr auto}
+.sl3 .val{color:var(--fg)}
 .btn{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:7px;padding:5px 8px;font:inherit;font-size:12.5px;min-height:34px;cursor:pointer;flex:1 1 auto;min-width:0}
 .btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn.on{border-color:var(--accent);color:var(--accent)}
@@ -94,7 +96,8 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 @media (max-height:430px){
   body{padding-block:5px}
   .app{gap:5px}
-  .panel{padding:6px;gap:7px}
+  .panel{padding:6px;gap:5px}
+  .sec{gap:4px}
   .big{font-size:18px}
   .btn{min-height:30px;padding:3px 6px;font-size:12px}
   input[type=range]{height:22px}
@@ -156,7 +159,6 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <!-- 右：針 -->
   <aside class="panel" aria-label="針の操作">
     <div class="sec">
-      <div class="lab">刺入点</div>
       <div class="grid2">
         <button class="btn" id="preR">右肋間</button>
         <button class="btn" id="preE">心窩部</button>
@@ -175,8 +177,11 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
       <button class="btn" id="lockBtn" hidden>固定</button>
     </div>
     <div class="sec">
-      <div class="row between"><span class="lab">深さ</span><span class="val" id="depVal">0.0 cm</span></div>
-      <input type="range" id="depth" min="0" max="15" step="0.1" value="0" aria-label="針の深さ">
+      <label class="sl sl3" for="depth"><span>深さ</span><input type="range" id="depth" min="0" max="15" step="0.1" value="0"><span class="val" id="depVal">0.0 cm</span></label>
+      <div class="grid2">
+        <button class="btn" id="gTgt" aria-pressed="false" aria-label="ガイド線：刺入点からターゲットまで">標的線</button>
+        <button class="btn" id="gExt" aria-pressed="false" aria-label="ガイド線：針の延長線">延長線</button>
+      </div>
       <div class="chip" id="status">刺入点を選んでください</div>
     </div>
     <div class="grid2 push">
@@ -205,13 +210,6 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <div class="row between"><label class="hint" for="tgtSize">直径</label><span class="val" id="tgtVal">7 mm</span></div>
     <input type="range" id="tgtSize" min="5" max="30" step="1" value="7">
     <p class="hint">琥珀色の円は透視には写らない補助表示です。刺入点のボタンを押すと推奨の枝に切り替わります（右肋間→B6、心窩部→B3）。</p>
-  </div>
-  <div class="sec">
-    <div class="lab">ガイド線（点線）</div>
-    <div class="grid2">
-      <button class="btn" id="gTgt" aria-pressed="false">刺入点→ターゲット</button>
-      <button class="btn" id="gExt" aria-pressed="false">針の延長線</button>
-    </div>
   </div>
   <div class="sec">
     <div class="lab">傾き操作</div>
@@ -294,6 +292,17 @@ const RIBS=[];
   });
 });
 const SPINE=[];for(let z=-17;z<=17;z+=3.1)SPINE.push(z);
+/* 胸骨・剣状突起・肋軟骨（透視には描かないが、針の当たり判定と3D表示に使う） */
+const STERN_Y=BODY.b-1.4;
+const STERNUM=[{c:V(0,STERN_Y,6),s:V(3,1,18)},{c:V(0,STERN_Y,-4.2),s:V(1.6,0.8,2.5)}];
+const CARTS=[];
+[12.5,9,5.5,2,-1.5,-3.5].forEach((zs,i)=>{
+  [0,1].forEach(j=>{
+    const e=RIBS[i*2+j].curve.getPoint(1),s=Math.sign(e.x),m=V(s*(i<4?1.5:0.9),STERN_Y,zs);
+    const mid=V((e.x+m.x)/2,(e.y+m.y)/2+0.6,(e.z+m.z)/2-(i<4?0.6:0));
+    const curve=new THREE.CatmullRomCurve3([e,mid,m]);CARTS.push({curve,samples:curve.getSpacedPoints(30),r:.5});
+  });
+});
 
 /* ===== 幾何計算 ===== */
 function segDist(p,a,b){
@@ -307,6 +316,14 @@ function nearestDuct(p){let best=null;DUCTS.forEach(d=>{const dd=polyDist(p,d.sa
 function inLiver(p){return LIVER.some(l=>{const q=p.clone().sub(l.c);return (q.x/l.r.x)**2+(q.y/l.r.y)**2+(q.z/l.r.z)**2<=1;});}
 function inBody(p){return (p.x/BODY.a)**2+(p.y/BODY.b)**2<=1;}
 function hitsRib(p){return RIBS.some(r=>polyDist(p,r.samples)<r.r+0.08);}
+function inBox(p,b){return Math.abs(p.x-b.c.x)<=b.s.x/2+.08&&Math.abs(p.y-b.c.y)<=b.s.y/2+.08&&Math.abs(p.z-b.c.z)<=b.s.z/2+.08;}
+/* 針が当たる骨・軟骨：'肋骨'／'胸骨'／'肋軟骨'／null */
+function hitWhat(p){
+  if(hitsRib(p))return '肋骨';
+  if(STERNUM.some(b=>inBox(p,b)))return '胸骨';
+  if(CARTS.some(c=>polyDist(p,c.samples)<c.r+0.08))return '肋軟骨';
+  return null;
+}
 function surfaceNormal(p){return V(p.x/BODY.a**2,p.y/BODY.b**2,0).normalize();}
 
 /* ===== 状態 ===== */
@@ -324,12 +341,12 @@ function needleDir(){
   return h.multiplyScalar(Math.cos(S.pitch*DEG)).add(V(0,0,Math.sin(S.pitch*DEG))).normalize();
 }
 function computeDepth(){
-  S.blocked=false;S.eff=S.depth;
+  S.blocked=false;S.blockedBy='';S.eff=S.depth;
   if(!S.entry)return;
   const d=needleDir();
   for(let t=0.1;t<=S.depth+1e-6;t+=0.1){
     const p=S.entry.clone().addScaledVector(d,t);
-    if(inBody(p)&&hitsRib(p)){S.eff=Math.max(0,t-0.1);S.blocked=true;return;}
+    const h=inBody(p)&&hitWhat(p);if(h){S.eff=Math.max(0,t-0.1);S.blocked=true;S.blockedBy=h;return;}
   }
 }
 function tip(){return S.entry.clone().addScaledVector(needleDir(),S.eff);}
@@ -449,18 +466,10 @@ function init3D(){
   const L=(c,o)=>new THREE.MeshLambertMaterial({color:c,transparent:o<1,opacity:o,depthWrite:o>=0.5,side:THREE.DoubleSide});
   const bodyMat=new THREE.MeshBasicMaterial({color:0x8aa0a6,transparent:true,opacity:.05,depthWrite:false,side:THREE.DoubleSide});
   addAnatomy(root,{body:bodyMat,liver:L(0xb9744f,.16),bone:L(0xddd6c6,.55),duct:L(0x4cc38a,1)});
-  /* 胸骨と肋軟骨（3Dのみ。透視ではほぼ写らないため描かない）。腊側の胸壁を閉じて前後を分かりやすくする */
-  const sy=BODY.b-1.4;
-  const st=new THREE.Mesh(new THREE.BoxGeometry(3,1,18),L(0xddd6c6,.55));st.position.set(0,sy,6);root.add(st);
-  const xi=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.8,2.5),L(0xddd6c6,1));xi.position.set(0,sy,-4.2);root.add(xi);
+  /* 胸骨と肋軟骨（3Dのみ。透視ではほぼ写らないため描かない） */
+  STERNUM.forEach(b=>{const m=new THREE.Mesh(new THREE.BoxGeometry(b.s.x,b.s.y,b.s.z),L(0xddd6c6,.55));m.position.copy(b.c);root.add(m);});
   const cart=L(0x9fb4bd,.55);
-  [12.5,9,5.5,2,-1.5,-3.5].forEach((zs,i)=>{
-    [0,1].forEach(j=>{
-      const rib=RIBS[i*2+j],e=rib.curve.getPoint(1),s=Math.sign(e.x),m=V(s*(i<4?1.5:0.9),sy,zs);
-      const mid=V((e.x+m.x)/2,(e.y+m.y)/2+0.6,(e.z+m.z)/2-(i<4?0.6:0));
-      root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3([e,mid,m]),0.5,24),cart));
-    });
-  });
+  CARTS.forEach(c=>root.add(new THREE.Mesh(tube(c.curve,c.r,24),cart)));
   PV.forEach(p=>root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0x7a8ce0,1))));
   HA.forEach(p=>root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0xe3573f,1))));
   tNeedle=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,NEEDLE_LEN,10),L(0xf2f2ee,1));
@@ -503,7 +512,7 @@ function centralAngle(d,p){
 }
 function judge(){
   if(!S.entry)return {cls:'',txt:'刺入点を選んでください'};
-  if(S.blocked)return {cls:'warn',txt:'肋骨に当たっています'};
+  if(S.blocked)return {cls:'warn',txt:S.blockedBy+'に当たっています'};
   if(S.eff<=0)return {cls:'',txt:'体表（未刺入）'};
   const t=tip(),n=nearestDuct(t),tg=target(),inT=tg&&t.distanceTo(tg.c)<=tg.r,ts=inT?'・ターゲット内':'';
   if(n.gap<=0)return {cls:'good',txt:'胆管内（'+n.duct.id+'）・中枢向き '+centralAngle(n.duct,t)+'°'+ts,n,inT};
@@ -520,7 +529,7 @@ function resultText(){
   const j=judge(),n=j.n||nearestDuct(tip());
   if(j.cls==='good')return ['成功：'+n.duct.id+'に入っています','針先は'+n.duct.id+'の内腔にあります。針と中枢側胆管のなす角は約'+centralAngle(n.duct,tip())+'°です（0°で針が肝門側へまっすぐ向き、90°で胆管に直交、90°を超えると末梢向き）。'+tgtNote()+'斜位で見たときの前後関係を3Dと見比べてください。'];
   const mm=Math.max(0,n.gap*10).toFixed(0);
-  return ['胆管外：'+j.txt,'最も近い胆管は'+n.duct.id+'で、針先から内腔まで約'+mm+' mmです。'+tgtNote()+(S.blocked?'途中で肋骨に当たって止まっています。':'')];
+  return ['胆管外：'+j.txt,'最も近い胆管は'+n.duct.id+'で、針先から内腔まで約'+mm+' mmです。'+tgtNote()+(S.blocked?'途中で'+S.blockedBy+'に当たって止まっています。':'')];
 }
 
 /* ===== UI ===== */
@@ -540,7 +549,7 @@ let toastT;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;c
 
 function setEntry(p){
   S.entry=p;S.normal=surfaceNormal(p);S.yaw=0;S.pitch=0;S.depth=0;$('depth').value=0;
-  if(hitsRib(p.clone().addScaledVector(S.normal,-1.2)))toast('この刺入点の直下に肋骨があります');
+  {const h=hitWhat(p.clone().addScaledVector(S.normal,-1.2));if(h)toast('この刺入点の直下に'+h+'があります');}
   syncUI();
 }
 /* 刺入点の微調整：頭尾方向と、体表（楕円）に沿った周方向 */
@@ -558,7 +567,7 @@ function nudge(dz,ds){
   if(ds){const L=Math.hypot(BODY.a*Math.sin(phi),BODY.b*Math.cos(phi));phi+=ds/L;}
   const p=V(BODY.a*Math.cos(phi),BODY.b*Math.sin(phi),Math.max(BODY.z0+1,Math.min(BODY.z1-1,S.entry.z+dz)));
   S.entry=p;S.normal=surfaceNormal(p);
-  if(hitsRib(p.clone().addScaledVector(S.normal,-1.2)))toast('この刺入点の直下に肋骨があります');
+  {const h=hitWhat(p.clone().addScaledVector(S.normal,-1.2));if(h)toast('この刺入点の直下に'+h+'があります');}
   syncUI();
 }
 $('nzU').onclick=()=>nudge(1,0);
