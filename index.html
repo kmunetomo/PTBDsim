@@ -34,13 +34,13 @@ body{
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-.app{display:grid;grid-template-columns:64px minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
-.rail{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 5px;display:flex;flex-direction:column;align-items:stretch;gap:5px;min-height:0}
-.rail .btn{flex:0 0 auto;padding:3px 2px;font-size:11.5px;line-height:1.2;min-height:30px}
-.railang{font-family:var(--f-mono);font-size:13px;font-weight:500;text-align:center;line-height:1.15;font-variant-numeric:tabular-nums}
-.vwrap{flex:1 1 auto;min-height:60px;display:flex;flex-direction:column;align-items:center;gap:2px}
-.vwrap .hint{font-size:10.5px}
-input[type=range].vert{writing-mode:vertical-lr;direction:rtl;width:30px;height:auto;flex:1 1 auto;min-height:40px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
+.maincol{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
+.maincol .viewer{flex:1 1 auto}
+.cbar{flex:0 0 auto;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 6px}
+.cbar .btn{flex:0 0 auto;min-height:30px;padding:3px 8px;font-size:12px}
+.cbar input[type=range]{flex:1 1 auto;min-width:60px;height:30px}
+.cang{font-family:var(--f-mono);font-size:13px;font-weight:500;min-width:4.8em;text-align:center;font-variant-numeric:tabular-nums}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-width:0;min-height:0}
 .sec{display:flex;flex-direction:column;gap:5px}
 .lab{font-size:11px;color:var(--muted);letter-spacing:.06em}
@@ -114,19 +114,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 
 <div class="app" id="app">
   <!-- 左：C-arm -->
-  <!-- 左：C-armレール（左親指で縦スライダー） -->
-  <aside class="rail" aria-label="C-armの角度">
-    <div class="railang" id="angBig">AP<br>0°</div>
-    <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO<br>+5°</button>
-    <div class="vwrap"><span class="hint">LAO</span>
-      <input type="range" class="vert" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（上がLAO、下がRAO）">
-    <span class="hint">RAO</span></div>
-    <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO<br>+5°</button>
-    <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
-    <button class="btn" id="openSet" aria-haspopup="dialog" aria-label="設定・使い方">設定</button>
-  </aside>
 
-  <!-- 中央：透視 / 3D -->
+  <!-- 左：透視 / 3D と、その下にC-armバー -->
+  <div class="maincol">
   <main class="viewer" id="viewer">
     <canvas id="fluoro" aria-label="仮想透視画像。タップで刺入点を設定"></canvas>
     <div class="fx vignette" id="vig"></div>
@@ -159,6 +149,15 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
       <div class="hint" style="text-align:center">この欄をタップすると閉じます</div>
     </div>
   </main>
+  <div class="cbar" aria-label="C-armの角度">
+    <div class="cang" id="angBig">AP 0°</div>
+    <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
+    <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
+    <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
+    <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
+    <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
+  </div>
+  </div>
 
   <!-- 右：針 -->
   <aside class="panel" aria-label="針の操作">
@@ -539,7 +538,7 @@ function resultText(){
 /* ===== UI ===== */
 function syncUI(){
   computeDepth();
-  $('angBig').innerHTML=angText(S.theta).replace(' ','<br>');
+  $('angBig').textContent=angText(S.theta);
   $('theta').value=S.theta;
   $('yaw').value=S.yaw;$('pitch').value=S.pitch;
   $('angVal').textContent='水平 '+S.yaw+'° / 頭尾 '+S.pitch+'°';
