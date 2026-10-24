@@ -411,14 +411,33 @@ function dashLine(color){
     new THREE.LineDashedMaterial({color,dashSize:.6,gapSize:.4,transparent:true,opacity:.95,depthTest:false,depthWrite:false}));
   l.renderOrder=11;l.visible=false;return l;
 }
+/* 標的線は太い破線（細い線は透視像に埋もれるため）。暗い縁取りの上に明るい琥珀の破線を重ねる */
+const UNIT_CYL=new THREE.CylinderGeometry(1,1,1,10);
+function dashTube(color,r){
+  const g=new THREE.Group();g.visible=false;g.renderOrder=11;
+  g.userData={color,r,halo:new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.55,depthTest:false,depthWrite:false}),
+    core:new THREE.MeshBasicMaterial({color,transparent:true,opacity:1,depthTest:false,depthWrite:false})};
+  return g;
+}
+function setDashTube(g,a,b){
+  while(g.children.length)g.remove(g.children[0]);
+  const d=b.clone().sub(a),L=d.length();if(L<1e-3)return;
+  const dir=d.clone().normalize(),q=new THREE.Quaternion().setFromUnitVectors(V(0,1,0),dir),dash=0.9,gap=0.5,r=g.userData.r;
+  for(let s0=0;s0<L;s0+=dash+gap){
+    const len=Math.min(dash,L-s0),mid=a.clone().addScaledVector(dir,s0+len/2);
+    [[g.userData.halo,r*1.9,10],[g.userData.core,r,11]].forEach(([m,rr,o])=>{
+      const c=new THREE.Mesh(UNIT_CYL,m);c.quaternion.copy(q);c.position.copy(mid);c.scale.set(rr,len,rr);c.renderOrder=o;g.add(c);
+    });
+  }
+}
 function placeGuides(gT,gE){
   const tg=target();
   gT.visible=S.gTgt&&!!tg&&!!S.entry;
-  if(gT.visible){gT.geometry.setFromPoints([S.entry,tg.c]);gT.computeLineDistances();}
+  if(gT.visible)setDashTube(gT,S.entry,tg.c);
   gE.visible=S.gExt&&!!S.entry;
   if(gE.visible){const t=tip();gE.geometry.setFromPoints([t,t.clone().addScaledVector(needleDir(),15)]);gE.computeLineDistances();}
 }
-const fGT=dashLine(0xf2a93b),fGE=dashLine(0xffffff);fScene.add(fGT,fGE);
+const fGT=dashTube(0xffc35a,0.14),fGE=dashLine(0xffffff);fScene.add(fGT,fGE);
 
 function placeNeedle(n,h){
   if(!S.entry){n.visible=h.visible=false;return;}
@@ -484,7 +503,7 @@ function init3D(){
   root.add(tTgt);
   tBeam=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,0,1)]),new THREE.LineBasicMaterial({color:0xf2a93b,transparent:true,opacity:.6}));
   root.add(tBeam);
-  tGT=dashLine(0xf2a93b);tGE=dashLine(0xffffff);root.add(tGT,tGE);
+  tGT=dashTube(0xffc35a,0.13);tGE=dashLine(0xffffff);root.add(tGT,tGE);
   /* 方向ラベル */
   const label=(txt,p)=>{
     const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
