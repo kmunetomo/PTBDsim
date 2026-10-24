@@ -246,11 +246,11 @@ const DEG=Math.PI/180;
 
 /* ===== 座標系（cm）: x=患者の左(+)、y=腹側(+)、z=頭側(+)。仰臥位 ===== */
 const BODY={a:16,b:11,z0:-22,z1:20};
-const ISO=V(-3,0.5,-1);      // C-armの回転中心
+const ISO=V(-8,0.5,-1);      // C-armの回転中心（患者の右寄り。右肋間から刺した針の後端まで視野に入れるため）
 const SOD=75;                // 管球〜回転中心（血管造影装置の一般的な値に寄せた概数）
 const SID=115;               // 管球〜検出器
 const HALF_H=8;              // 回転中心での視野の縦半分（胆管の上下端＋余白。頭尾方向は狭めて拡大）
-const HALF_W=13.5;           // 回転中心での視野の横半分（右側腹部の刺入点まで入る幅）
+const HALF_W=19;             // 回転中心での視野の横半分（正面で患者右は体表から約11 cm外側、左は左葉外縁まで）
 const NEEDLE_LEN=15;
 
 const LIVER=[ {c:V(-6,0,0), r:V(9.5,7.5,8.5)}, {c:V(3,4.5,-0.5), r:V(8.5,5.5,7.5)} ];
@@ -694,7 +694,7 @@ $('resShow').onclick=()=>{$('resMini').hidden=true;$('result').hidden=false;};
 function resize(){
   const r=$('viewer').getBoundingClientRect(),w=Math.max(10,r.width),h=Math.max(10,r.height);
   fr.setSize(w,h,false);fCam.aspect=w/h;
-  // 回転中心で横27 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
+  // 回転中心で横38 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
   const halfH=Math.max(HALF_H,HALF_W/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
   fCam.updateProjectionMatrix();renderFluoro();
   if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
