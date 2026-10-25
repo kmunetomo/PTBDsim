@@ -494,7 +494,16 @@ const fMat={longBody:true,body:softMaterial(.09),liver:softMaterial(.11),heart:s
 addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
 {const ms=boneMaterial(false),mx=boneMaterial(false);ms.uniforms.strength.value=.07;mx.uniforms.strength.value=.04;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
-const fNeedle=new THREE.Mesh(G.needle,xr(.18)), fHub=new THREE.Mesh(G.hub,xr(.45));
+const fNeedle=new THREE.Mesh(G.needle,xr(.18));
+/* 透視用の針の手元：プラスチックのハブ（淡い）の両端に金属リングを付ける。
+   X線と針が一直線になると、2つのリングが同心円になり中心に針が点で重なる（ブルズアイ）。ずれるとリングが離れる */
+const fHub=(()=>{
+  const g=new THREE.Group(),ring=new THREE.TorusGeometry(0.55,0.09,12,40);ring.rotateX(Math.PI/2);
+  const body=new THREE.Mesh(G.hub,xr(.86));g.add(body);
+  [0.8,-0.8].forEach(y=>{const r=new THREE.Mesh(ring,xr(.3));r.position.y=y;g.add(r);});
+  const core=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,1.6,10),xr(.35));g.add(core);   // 針の延長の金属芯
+  return g;
+})();
 fScene.add(fNeedle,fHub);fNeedle.visible=fHub.visible=false;
 const fTgt=new THREE.Mesh(new THREE.RingGeometry(0.86,1,64),new THREE.MeshBasicMaterial({color:0xf2a93b,transparent:true,opacity:.95,depthTest:false,depthWrite:false,side:THREE.DoubleSide}));
 fTgt.renderOrder=10;fScene.add(fTgt);
