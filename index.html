@@ -558,10 +558,10 @@ function drawPic(){
   for(let z=zt;z>=-14;z-=1){const [a,b]=P(-half(z),z);z===zt?x.moveTo(a,b):x.lineTo(a,b);}
   for(let z=-14;z<=zt;z+=1){const [a,b]=P(half(z),z);x.lineTo(a,b);}
   x.stroke();
-  // うっすら肋骨・肋軟骨・胸骨（正面への投影。腹側の部分ほど少し濃く）
+  // うっすら肋骨（腹側半分のみ）・肋軟骨・胸骨（正面への投影）
   x.save();x.beginPath();x.rect(0,yt,W,(zt+14)*k);x.clip();x.lineCap='round';
-  RIBS.forEach(r=>{const sp=r.samples;for(let i=0;i<sp.length-1;i++){const q=sp[i],q2=sp[i+1],front=(q.y+BODY.b)/(2*BODY.b);
-    x.strokeStyle='rgba(226,233,230,'+(0.08+0.17*front).toFixed(3)+')';x.lineWidth=3.2;x.beginPath();x.moveTo(...P(q.x,q.z));x.lineTo(...P(q2.x,q2.z));x.stroke();}});
+  RIBS.forEach(r=>{const sp=r.samples;for(let i=0;i<sp.length-1;i++){const q=sp[i],q2=sp[i+1];if(q.y<-1)continue;const front=Math.min(1,(q.y+1)/(BODY.b-1));
+    x.strokeStyle='rgba(226,233,230,'+(0.12+0.18*front).toFixed(3)+')';x.lineWidth=3.2;x.beginPath();x.moveTo(...P(q.x,q.z));x.lineTo(...P(q2.x,q2.z));x.stroke();}});
   x.strokeStyle='rgba(159,180,189,.32)';x.lineWidth=2.4;
   CARTS.forEach(cg=>{const sp=cg.samples;x.beginPath();sp.forEach((q,i)=>i?x.lineTo(...P(q.x,q.z)):x.moveTo(...P(q.x,q.z)));x.stroke();});
   x.fillStyle='rgba(226,233,230,.28)';
