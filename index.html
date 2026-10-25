@@ -264,7 +264,7 @@ function livProf(x){
 }
 function livRound(x){const t=(x-LIV.X[0])/(LIV.X.at(-1)-LIV.X[0]),sx=2*t-1;return Math.pow(Math.max(0,1-sx*sx),LIV.EXP/2);}
 /* 心臓（おまけ）：横隔膜の上、心尖は左前下を向く */
-const HEART={c:V(2.5,5,11),r:V(6,4,5),rot:new THREE.Euler(0.35,0,-0.55)};   // 胸骨のすぐ後ろ（前縁はy≈9）に前寄せで配置
+const HEART={c:V(4.5,4.8,11),r:V(7.5,4.5,5.8),rot:new THREE.Euler(0.35,0,-0.55)};   // 胸骨のすぐ後ろ（前縁はy≈9）に前寄せで配置
 
 const DUCTS=[
  {id:'総胆管',  r:.50, pts:[V(-0.5,2,-12),V(-0.8,1.6,-7),V(-1,1.2,-3.5),V(-1.2,1,-2.2)]},
