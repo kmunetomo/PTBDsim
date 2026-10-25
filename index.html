@@ -292,13 +292,14 @@ PV[1].pts[0]=V(-1,-0.1,-2.8); PV[PV.length-4].pts[0]=V(-1,-0.1,-2.8);
 
 /* 肋骨：肋骨頭（椎体の後外側）→肋骨結節（横突起の高さ）→背側→外側→腹側へ回りながら前方で下がる */
 const RIBS=[];
+const RIB_DROP=13;   // 背側から腹側へ回る間に下がる量（半周あたりcm）。大きいほど急峻
 [14,10.5,7,3.5,0,-3.5,-7,-10.5].forEach((z0,i)=>{
   const phi1=i<6?0.82*Math.PI:(i===6?0.6*Math.PI:0.45*Math.PI), phi0=0.12*Math.PI;
   [-1,1].forEach(s=>{
     const pts=[V(s*2.5,-7.4,z0+0.4),V(s*4.3,-9.6,z0+0.2)];   // 肋骨頭・肋骨結節（椎体中心は(0,-6.5)、半径2.3）
     for(let k=0;k<=16;k++){
       const ph=phi0+(phi1-phi0)*k/16;
-      pts.push(V(s*(BODY.a-1.2)*Math.sin(ph), -(BODY.b-1.2)*Math.cos(ph), z0-6*(ph-phi0)/Math.PI));
+      pts.push(V(s*(BODY.a-1.2)*Math.sin(ph), -(BODY.b-1.2)*Math.cos(ph), z0-RIB_DROP*(ph-phi0)/Math.PI));
     }
     const curve=new THREE.CatmullRomCurve3(pts);
     RIBS.push({curve,samples:curve.getSpacedPoints(90),r:.6});
