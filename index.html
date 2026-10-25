@@ -254,7 +254,17 @@ const HALF_H=8;              // 回転中心での視野の縦半分（胆管の
 const HALF_W=20;             // 回転中心での視野の横半分（正面で患者右は体表から約11 cm外側、左は左葉外縁まで）
 const NEEDLE_LEN=15;
 
-const LIVER=[ {c:V(-6,0,0), r:V(9.5,7.5,8.5)}, {c:V(3,4.5,-0.5), r:V(8.5,5.5,7.5)} ];
+/* 肝：右葉は大きく横隔膜下にドーム状、左に向かって薄く前方へ細る一つの塊。
+   左右方向の位置ごとに断面（楕円）の中心と大きさを補間し、球を変形して作る */
+const LIV={X:[-16.5,-10,-4,2,7,10],zc:[-1,-1,0,-1,.5,1.5],zh:[8,9,8.5,6.5,5.5,3.5],yc:[0,0,1.5,3,4,4.5],yh:[6.5,7.5,6.5,5,3,1.5],EXP:0.3};
+function livProf(x){
+  const X=LIV.X;let i=0;while(i<X.length-2&&x>X[i+1])i++;
+  const f=Math.max(0,Math.min(1,(x-X[i])/(X[i+1]-X[i]))),L=k=>LIV[k][i]+(LIV[k][i+1]-LIV[k][i])*f;
+  return {zc:L('zc'),zh:L('zh'),yc:L('yc'),yh:L('yh')};
+}
+function livRound(x){const t=(x-LIV.X[0])/(LIV.X.at(-1)-LIV.X[0]),sx=2*t-1;return Math.pow(Math.max(0,1-sx*sx),LIV.EXP/2);}
+/* 心臓（おまけ）：横隔膜の上、心尖は左前下を向く */
+const HEART={c:V(2.5,2.5,11.5),r:V(6,4.5,5),rot:new THREE.Euler(0.35,0,-0.55)};
 
 const DUCTS=[
  {id:'総胆管',  r:.50, pts:[V(-0.5,2,-12),V(-0.8,1.6,-7),V(-1,1.2,-3.5),V(-1.2,1,-2.2)]},
@@ -325,7 +335,11 @@ function polyDist(p,s){let m=1e9;for(let i=0;i<s.length-1;i++){const d=segDist(p
 let DUCT_K=6/8;   // 初期値：末梢枝6 mm
 const DUCT_MESHES=[];
 function nearestDuct(p){let best=null;DUCTS.forEach(d=>{const dd=polyDist(p,d.samples),r=d.r*DUCT_K;if(!best||dd-r<best.gap)best={duct:d,dist:dd,gap:dd-r};});return best;}
-function inLiver(p){return LIVER.some(l=>{const q=p.clone().sub(l.c);return (q.x/l.r.x)**2+(q.y/l.r.y)**2+(q.z/l.r.z)**2<=1;});}
+function inLiver(p){
+  if(p.x<LIV.X[0]||p.x>LIV.X.at(-1))return false;
+  const q=livProf(p.x),f=livRound(p.x);if(f<=0)return false;
+  return ((p.y-q.yc)/(q.yh*f))**2+((p.z-q.zc)/(q.zh*f))**2<=1;
+}
 function inBody(p){return (p.x/BODY.a)**2+(p.y/BODY.b)**2<=1;}
 function hitsRib(p){
   return RIBS.some(r=>{
@@ -384,6 +398,15 @@ function tube(c,r,seg){return new THREE.TubeGeometry(c,seg||48,r,12,false);}
 const G={};
 G.body=new THREE.CylinderGeometry(1,1,BODY.z1-BODY.z0,64);
 G.sphere=new THREE.SphereGeometry(1,48,32);
+G.liver=(()=>{
+  const g=new THREE.SphereGeometry(1,72,48),pos=g.attributes.position,p=new THREE.Vector3();
+  for(let k=0;k<pos.count;k++){
+    p.fromBufferAttribute(pos,k);
+    const x=LIV.X[0]+(p.x+1)/2*(LIV.X.at(-1)-LIV.X[0]),r=Math.sqrt(Math.max(1e-6,1-p.x*p.x)),f=livRound(x),q=livProf(x);
+    pos.setXYZ(k,x,q.yc+q.yh*f*p.y/r,q.zc+q.zh*f*p.z/r);
+  }
+  pos.needsUpdate=true;g.computeVertexNormals();return g;
+})();
 G.vert=new THREE.CylinderGeometry(2.3,2.3,2.5,24);
 G.spin=new THREE.BoxGeometry(0.9,2.6,1.6);
 G.ducts=DUCTS.map(d=>tube(d.curve,d.r*DUCT_K));
@@ -403,7 +426,8 @@ G.hub=new THREE.CylinderGeometry(0.45,0.45,1.6,16);
 function placeBody(m){m.rotation.x=Math.PI/2;m.scale.set(BODY.a,1,BODY.b);m.position.set(0,0,(BODY.z0+BODY.z1)/2);}
 function addAnatomy(scene,mat){
   const body=new THREE.Mesh(G.body,mat.body);placeBody(body);scene.add(body);
-  LIVER.forEach(l=>{const m=new THREE.Mesh(G.sphere,mat.liver);m.position.copy(l.c);m.scale.copy(l.r);scene.add(m);});
+  scene.add(new THREE.Mesh(G.liver,mat.liver));
+  {const h=new THREE.Mesh(G.sphere,mat.heart);h.position.copy(HEART.c);h.scale.copy(HEART.r);h.rotation.copy(HEART.rot);scene.add(h);}
   G.ribs.forEach(g=>scene.add(new THREE.Mesh(g,mat.rib||mat.bone)));
   SPINE.forEach(z=>{
     const v=new THREE.Mesh(G.vert,mat.spine||mat.bone);v.rotation.x=Math.PI/2;v.position.set(0,-6.5,z);scene.add(v);
@@ -427,7 +451,15 @@ function boneMaterial(along){
       'float an=mix(1.0,mix(1.0,0.45,smoothstep(0.5,1.0,vUv.x)),along);'+  // 肋骨は腹側端に向かって淡く
       'float v=1.0-strength*th*an;gl_FragColor=vec4(v,v,v,1.0);}'});
 }
-const fMat={body:xr(.93),liver:xr(.94),spine:boneMaterial(false),rib:boneMaterial(true),duct:xr(.42)};
+/* 軟部組織（肝・心臓）：通過する厚みに比例して淡く写す。ふちはなだらかに */
+function softMaterial(strength){
+  const m=boneMaterial(false);m.uniforms.strength.value=strength;
+  m.fragmentShader='uniform float strength;uniform float along;varying vec3 vN;varying vec3 vW;varying vec2 vUv;'+
+    'void main(){vec3 vd=normalize(cameraPosition-vW);float c=abs(dot(normalize(vN),vd));float th=smoothstep(0.0,0.95,c);'+
+    'float v=1.0-strength*th;gl_FragColor=vec4(v,v,v,1.0);}';
+  return m;
+}
+const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.13),spine:boneMaterial(false),rib:boneMaterial(true),duct:xr(.42)};
 addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
 {const ms=boneMaterial(false),mx=boneMaterial(false);mx.uniforms.strength.value=.10;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
@@ -521,7 +553,7 @@ function init3D(){
   const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(30,50,60);tScene.add(dl);
   const L=(c,o)=>new THREE.MeshLambertMaterial({color:c,transparent:o<1,opacity:o,depthWrite:o>=0.5,side:THREE.DoubleSide});
   const bodyMat=new THREE.MeshBasicMaterial({color:0x8aa0a6,transparent:true,opacity:.05,depthWrite:false,side:THREE.DoubleSide});
-  addAnatomy(root,{body:bodyMat,liver:L(0xb9744f,.16),bone:L(0xddd6c6,.55),duct:L(0x4cc38a,1)});
+  addAnatomy(root,{body:bodyMat,liver:L(0xb9744f,.16),heart:L(0xb8484f,.22),bone:L(0xddd6c6,.55),duct:L(0x4cc38a,1)});
   /* 胸骨と肋軟骨（3Dのみ。透視ではほぼ写らないため描かない） */
   sternumMeshes(L(0xddd6c6,.55),L(0xcfd8d4,.55)).forEach(m=>root.add(m));
   const cart=L(0x9fb4bd,.55);
