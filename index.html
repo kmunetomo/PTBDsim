@@ -319,7 +319,12 @@ const DUCT_MESHES=[];
 function nearestDuct(p){let best=null;DUCTS.forEach(d=>{const dd=polyDist(p,d.samples),r=d.r*DUCT_K;if(!best||dd-r<best.gap)best={duct:d,dist:dd,gap:dd-r};});return best;}
 function inLiver(p){return LIVER.some(l=>{const q=p.clone().sub(l.c);return (q.x/l.r.x)**2+(q.y/l.r.y)**2+(q.z/l.r.z)**2<=1;});}
 function inBody(p){return (p.x/BODY.a)**2+(p.y/BODY.b)**2<=1;}
-function hitsRib(p){return RIBS.some(r=>polyDist(p,r.samples)<r.r+0.08);}
+function hitsRib(p){
+  return RIBS.some(r=>{
+    let m=1e9,mi=0;const s=r.samples;for(let i=0;i<s.length-1;i++){const d=segDist(p,s[i],s[i+1]);if(d<m){m=d;mi=i;}}
+    return m<r.r*ribTaper(mi/(s.length-1))+0.08;
+  });
+}
 function inBox(p,b){return Math.abs(p.x-b.c.x)<=b.s.x/2+.08&&Math.abs(p.y-b.c.y)<=b.s.y/2+.08&&Math.abs(p.z-b.c.z)<=b.s.z/2+.08;}
 /* 針が当たる骨・軟骨：'肋骨'／'胸骨'／'肋軟骨'／null */
 function hitWhat(p){
@@ -374,7 +379,16 @@ G.sphere=new THREE.SphereGeometry(1,48,32);
 G.vert=new THREE.CylinderGeometry(2.3,2.3,2.5,24);
 G.spin=new THREE.BoxGeometry(0.9,2.6,1.6);
 G.ducts=DUCTS.map(d=>tube(d.curve,d.r*DUCT_K));
-G.ribs=RIBS.map(r=>tube(r.curve,r.r,80));
+/* 肋骨は腹側端に向かって細くする（背側の太さの65%まで） */
+function ribTaper(u){const t=Math.max(0,Math.min(1,(u-0.55)/0.45));return 1-0.35*t*t*(3-2*t);}
+G.ribs=RIBS.map(r=>{
+  const seg=80,rad=12,g=tube(r.curve,r.r,seg),pos=g.attributes.position,p=new THREE.Vector3();
+  for(let i=0;i<=seg;i++){
+    const u=i/seg,c=r.curve.getPointAt(u),f=ribTaper(u);
+    for(let j=0;j<=rad;j++){const k=i*(rad+1)+j;p.fromBufferAttribute(pos,k).sub(c).multiplyScalar(f).add(c);pos.setXYZ(k,p.x,p.y,p.z);}
+  }
+  pos.needsUpdate=true;g.computeVertexNormals();return g;
+});
 G.needle=new THREE.CylinderGeometry(0.06,0.06,NEEDLE_LEN,8);
 G.hub=new THREE.CylinderGeometry(0.45,0.45,1.6,16);
 
@@ -389,15 +403,23 @@ function addAnatomy(scene,mat){
   });
   G.ducts.forEach(g=>{const m=new THREE.Mesh(g,mat.duct);scene.add(m);DUCT_MESHES.push(m);});
 }
-/* 骨：背側(y=-9)ほど濃く、腹側(y=+9)ほど淡い乗算係数。減弱を奥行きで不均一にして前後関係の手がかりにする */
-const boneU={vPost:{value:.58},vAnt:{value:.90}};
-function setBoneDepth(k){boneU.vPost.value=.70-.12*k;boneU.vAnt.value=Math.min(.97,.70+.20*k);}
-setBoneDepth(1.0);   // 背側／腹側の濃淡差は100%で固定（前後の手がかりとして強めに）
-const boneMat=new THREE.ShaderMaterial({uniforms:boneU,transparent:true,depthTest:false,depthWrite:false,
-  blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,side:THREE.FrontSide,
-  vertexShader:'varying float vy;void main(){vec4 w=modelMatrix*vec4(position,1.0);vy=w.y;gl_Position=projectionMatrix*viewMatrix*w;}',
-  fragmentShader:'uniform float vPost;uniform float vAnt;varying float vy;void main(){float t=clamp((vy+9.0)/18.0,0.0,1.0);float v=mix(vPost,vAnt,t);gl_FragColor=vec4(v,v,v,1.0);}'});
-const fMat={body:xr(.93),liver:xr(.94),spine:boneMat,rib:boneMat,duct:xr(.42)};
+/* 骨の写り方（管球は背側、検出器は腹側）
+   ・吸収の強さは深さによらない。通過する骨の厚みに比例させる（断面の中心は濃く、ふちは淡い）
+   ・管球に近い背側ほど幾何学的なぼけが大きいので、ふちの淡くなる幅を広げる（腹側はシャープ）
+   ・肋骨は解剖に合わせ、腹側（肋軟骨移行部）に向かって細く淡くする（形状はG.ribsで先細り） */
+function boneMaterial(along){
+  return new THREE.ShaderMaterial({uniforms:{strength:{value:.30},along:{value:along?1:0}},transparent:true,depthTest:false,depthWrite:false,
+    blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,side:THREE.FrontSide,
+    vertexShader:'varying vec3 vN;varying vec3 vW;varying vec2 vUv;void main(){vec4 w=modelMatrix*vec4(position,1.0);vW=w.xyz;vN=normalize(mat3(modelMatrix)*normal);vUv=uv;gl_Position=projectionMatrix*viewMatrix*w;}',
+    fragmentShader:'uniform float strength;uniform float along;varying vec3 vN;varying vec3 vW;varying vec2 vUv;'+
+      'void main(){vec3 vd=normalize(cameraPosition-vW);float c=abs(dot(normalize(vN),vd));'+
+      'float depth=clamp((vW.y+9.0)/18.0,0.0,1.0);'+          // 0=背側 1=腹側
+      'float edge=mix(0.62,0.22,depth);'+                     // 背側ほどふちのぼけ幅が広い
+      'float th=smoothstep(0.0,edge,c);'+
+      'float an=mix(1.0,mix(1.0,0.45,smoothstep(0.5,1.0,vUv.x)),along);'+  // 肋骨は腹側端に向かって淡く
+      'float v=1.0-strength*th*an;gl_FragColor=vec4(v,v,v,1.0);}'});
+}
+const fMat={body:xr(.93),liver:xr(.94),spine:boneMaterial(false),rib:boneMaterial(true),duct:xr(.42)};
 addAnatomy(fScene,fMat);
 const fNeedle=new THREE.Mesh(G.needle,xr(.18)), fHub=new THREE.Mesh(G.hub,xr(.45));
 fScene.add(fNeedle,fHub);fNeedle.visible=fHub.visible=false;
