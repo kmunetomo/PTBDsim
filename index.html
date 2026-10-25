@@ -403,6 +403,8 @@ function xr(v){
 function tube(c,r,seg,rad){return new THREE.TubeGeometry(c,seg||48,r,rad||12,false);}
 const G={};
 G.body=new THREE.CylinderGeometry(1,1,BODY.z1-BODY.z0,64);
+/* 透視用の体：上下端が視野に入らないよう十分長い、ふたのない筒。厚みに比例して写るので体の輪郭はなだらかに淡くなる */
+G.bodyLong=new THREE.CylinderGeometry(1,1,140,96,1,true);
 G.sphere=new THREE.SphereGeometry(1,48,32);
 G.liver=(()=>{
   const g=new THREE.SphereGeometry(1,72,48),pos=g.attributes.position,p=new THREE.Vector3();
@@ -438,7 +440,7 @@ G.hub=new THREE.CylinderGeometry(0.45,0.45,1.6,16);
 
 function placeBody(m){m.rotation.x=Math.PI/2;m.scale.set(BODY.a,1,BODY.b);m.position.set(0,0,(BODY.z0+BODY.z1)/2);}
 function addAnatomy(scene,mat){
-  const body=new THREE.Mesh(G.body,mat.body);placeBody(body);scene.add(body);
+  const body=new THREE.Mesh(mat.longBody?G.bodyLong:G.body,mat.body);placeBody(body);if(mat.longBody)body.position.z=0;scene.add(body);
   scene.add(new THREE.Mesh(G.liver,mat.liver));
   {const h=new THREE.Mesh(G.sphere,mat.heart);h.position.copy(HEART.c);h.scale.copy(HEART.r);h.rotation.copy(HEART.rot);scene.add(h);}
   G.ribs.forEach(g=>scene.add(new THREE.Mesh(g,mat.rib||mat.bone)));
@@ -476,7 +478,7 @@ function softMaterial(strength){
     'float v=1.0-strength*th;gl_FragColor=vec4(v,v,v,1.0);}';
   return m;
 }
-const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.22),spine:boneMaterial(false),post:(()=>{const m=boneMaterial(false);m.uniforms.strength.value=.11;return m;})(),rib:(()=>{const m=boneMaterial(true);m.uniforms.strength.value=.13;return m;})(),duct:xr(.42)};
+const fMat={longBody:true,body:softMaterial(.09),liver:softMaterial(.11),heart:softMaterial(.22),spine:boneMaterial(false),post:(()=>{const m=boneMaterial(false);m.uniforms.strength.value=.11;return m;})(),rib:(()=>{const m=boneMaterial(true);m.uniforms.strength.value=.13;return m;})(),duct:xr(.42)};
 addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
 {const ms=boneMaterial(false),mx=boneMaterial(false);ms.uniforms.strength.value=.07;mx.uniforms.strength.value=.04;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
