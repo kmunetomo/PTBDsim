@@ -603,10 +603,16 @@ function syncUI(){
 }
 let toastT;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600);}
 
+/* 刺入点の直下の骨・軟骨の通知。なければ、前の刺入点の通知をすぐ消す */
+function entryNotice(p){
+  const h=hitWhat(p.clone().addScaledVector(S.normal,-1.2));
+  if(h)toast('この刺入点の直下に'+h+'があります');
+  else if($('toast').textContent.includes('直下')){clearTimeout(toastT);$('toast').hidden=true;}
+}
+/* 刺入点を変えても針の角度（水平・頭尾）は保持し、深さだけを0に戻す */
 function setEntry(p){
-  S.entry=p;S.normal=surfaceNormal(p);S.yaw=0;S.pitch=0;S.depth=0;$('depth').value=0;
-  rebaseYaw();rebasePitch();   // 傾き操作中でも、新しい刺入点では角度0から始める
-  {const h=hitWhat(p.clone().addScaledVector(S.normal,-1.2));if(h)toast('この刺入点の直下に'+h+'があります');}
+  S.entry=p;S.normal=surfaceNormal(p);S.depth=0;$('depth').value=0;
+  entryNotice(p);
   syncUI();
 }
 /* 刺入点の微調整：頭尾方向と、体表（楕円）に沿った周方向 */
@@ -624,7 +630,7 @@ function nudge(dz,ds){
   if(ds){const L=Math.hypot(BODY.a*Math.sin(phi),BODY.b*Math.cos(phi));phi+=ds/L;}
   const p=V(BODY.a*Math.cos(phi),BODY.b*Math.sin(phi),Math.max(BODY.z0+1,Math.min(BODY.z1-1,S.entry.z+dz)));
   S.entry=p;S.normal=surfaceNormal(p);
-  {const h=hitWhat(p.clone().addScaledVector(S.normal,-1.2));if(h)toast('この刺入点の直下に'+h+'があります');}
+  entryNotice(p);
   syncUI();
 }
 $('nzU').onclick=()=>nudge(1,0);
