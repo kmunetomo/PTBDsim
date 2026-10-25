@@ -495,6 +495,9 @@ addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
 {const ms=boneMaterial(false),mx=boneMaterial(false);ms.uniforms.strength.value=.07;mx.uniforms.strength.value=.04;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
 const fNeedle=new THREE.Mesh(G.needle,xr(.18));
+/* 練習用：針先1 cmだけ色を付ける（透視には実在しない補助表示）。ブルズアイのとき、リングの中心に色の点として見える */
+const fTipMark=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,1,12),new THREE.MeshBasicMaterial({color:0xff3d7f,transparent:true,depthTest:false,depthWrite:false}));
+fTipMark.renderOrder=12;fTipMark.visible=false;fScene.add(fTipMark);
 /* 透視用の針の手元：プラスチックのハブ（淡い）の両端に金属リングを付ける。
    X線と針が一直線になると、2つのリングが同心円になり中心に針が点で重なる（ブルズアイ）。ずれるとリングが離れる */
 const fHub=(()=>{
@@ -595,6 +598,8 @@ function renderFluoro(){
   const b=beam();
   fCam.position.copy(b.src);fCam.lookAt(ISO);fCam.updateMatrixWorld();
   placeNeedle(fNeedle,fHub);
+  fTipMark.visible=!!S.entry;
+  if(S.entry){const d=needleDir();fTipMark.quaternion.setFromUnitVectors(V(0,1,0),d);fTipMark.position.copy(tip().addScaledVector(d,-0.5));}
   const tg=target();
   [fTgt,fTgtDot].forEach(m=>{
     m.visible=!!tg;
@@ -934,7 +939,8 @@ function resize(){
   fr.setSize(w,h,false);fCam.aspect=w/h;
   // 回転中心で横46 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
   const halfH=Math.max(HALF_H,HALF_W/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
-  fGT.userData.r=2*halfH/h;   // 回転中心で1 pxに相当する半径＝幅約2 px
+  fGT.userData.r=2*halfH/h;
+  {const r=3.5*2*halfH/h/0.1;fTipMark.scale.set(r,1,r);}   // 針先マーカーは画面上で太さ約7 px   // 回転中心で1 pxに相当する半径＝幅約2 px
   fCam.updateProjectionMatrix();renderFluoro();
   if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
 }
