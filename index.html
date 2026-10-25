@@ -476,7 +476,7 @@ function softMaterial(strength){
 const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.22),spine:boneMaterial(false),rib:(()=>{const m=boneMaterial(true);m.uniforms.strength.value=.13;return m;})(),duct:xr(.42)};
 addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
-{const ms=boneMaterial(false),mx=boneMaterial(false);mx.uniforms.strength.value=.10;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
+{const ms=boneMaterial(false),mx=boneMaterial(false);ms.uniforms.strength.value=.07;mx.uniforms.strength.value=.04;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
 const fNeedle=new THREE.Mesh(G.needle,xr(.18)), fHub=new THREE.Mesh(G.hub,xr(.45));
 fScene.add(fNeedle,fHub);fNeedle.visible=fHub.visible=false;
 const fTgt=new THREE.Mesh(new THREE.RingGeometry(0.86,1,64),new THREE.MeshBasicMaterial({color:0xf2a93b,transparent:true,opacity:.95,depthTest:false,depthWrite:false,side:THREE.DoubleSide}));
