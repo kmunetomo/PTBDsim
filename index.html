@@ -151,7 +151,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
         <span class="sw" style="background:#e3573f"></span><span>肝動脈</span>
         <span class="sw" style="background:#f2f2ee"></span><span>針（黄色＝針先）</span>
         <span class="sw" style="background:#f2a93b"></span><span>ターゲット</span>
-        <span class="sw" style="background:#9fb4bd"></span><span>肋軟骨・胸骨は3Dのみ</span>
+        <span class="sw" style="background:#9fb4bd"></span><span>肋軟骨は3Dのみ</span>
         <span class="sw" style="background:#f2a93b;opacity:.6"></span><span>X線の向き（管球→検出器）</span>
       </div>
       <button class="btn primary" id="back">透視に戻る</button>
@@ -298,7 +298,15 @@ const RIBS=[];
 const SPINE=[];for(let z=-17;z<=17;z+=3.1)SPINE.push(z);
 /* 胸骨・剣状突起・肋軟骨（透視には描かないが、針の当たり判定と3D表示に使う） */
 const STERN_Y=BODY.b-1.4;
-const STERNUM=[{c:V(0,STERN_Y,6),s:V(3,1,18)},{c:V(0,STERN_Y,-4.2),s:V(1.6,0.8,2.5)}];
+const STERNUM=[{c:V(0,STERN_Y,6),s:V(3.2,1.1,18),name:'胸骨'},{c:V(0,STERN_Y-0.3,-4.2),s:V(1.8,0.6,2.5),name:'剣状突起'}];
+/* 胸骨（胸骨柄＋胸骨体：頭側ほど幅広）と剣状突起（細く薄い）を、断面が楕円の先細りの柱で作る */
+function sternumMeshes(matSt,matXi){
+  const st=new THREE.Mesh(new THREE.CylinderGeometry(1,0.72,18,28),matSt);
+  st.rotation.x=Math.PI/2;st.scale.set(1.75,1,0.55);st.position.copy(STERNUM[0].c);
+  const xi=new THREE.Mesh(new THREE.CylinderGeometry(0.62,0.22,2.5,20),matXi);
+  xi.rotation.x=Math.PI/2;xi.scale.set(1.45,1,0.5);xi.position.copy(STERNUM[1].c);
+  return [st,xi];
+}
 const CARTS=[];
 [12.5,9,5.5,2,-1.5,-3.5].forEach((zs,i)=>{
   [0,1].forEach(j=>{
@@ -329,7 +337,7 @@ function inBox(p,b){return Math.abs(p.x-b.c.x)<=b.s.x/2+.08&&Math.abs(p.y-b.c.y)
 /* 針が当たる骨・軟骨：'肋骨'／'胸骨'／'肋軟骨'／null */
 function hitWhat(p){
   if(hitsRib(p))return '肋骨';
-  if(STERNUM.some(b=>inBox(p,b)))return '胸骨';
+  {const b=STERNUM.find(b=>inBox(p,b));if(b)return b.name;}
   if(CARTS.some(c=>polyDist(p,c.samples)<c.r+0.08))return '肋軟骨';
   return null;
 }
@@ -421,6 +429,8 @@ function boneMaterial(along){
 }
 const fMat={body:xr(.93),liver:xr(.94),spine:boneMaterial(false),rib:boneMaterial(true),duct:xr(.42)};
 addAnatomy(fScene,fMat);
+/* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
+{const ms=boneMaterial(false),mx=boneMaterial(false);mx.uniforms.strength.value=.10;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
 const fNeedle=new THREE.Mesh(G.needle,xr(.18)), fHub=new THREE.Mesh(G.hub,xr(.45));
 fScene.add(fNeedle,fHub);fNeedle.visible=fHub.visible=false;
 const fTgt=new THREE.Mesh(new THREE.RingGeometry(0.86,1,64),new THREE.MeshBasicMaterial({color:0xf2a93b,transparent:true,opacity:.95,depthTest:false,depthWrite:false,side:THREE.DoubleSide}));
@@ -513,7 +523,7 @@ function init3D(){
   const bodyMat=new THREE.MeshBasicMaterial({color:0x8aa0a6,transparent:true,opacity:.05,depthWrite:false,side:THREE.DoubleSide});
   addAnatomy(root,{body:bodyMat,liver:L(0xb9744f,.16),bone:L(0xddd6c6,.55),duct:L(0x4cc38a,1)});
   /* 胸骨と肋軟骨（3Dのみ。透視ではほぼ写らないため描かない） */
-  STERNUM.forEach(b=>{const m=new THREE.Mesh(new THREE.BoxGeometry(b.s.x,b.s.y,b.s.z),L(0xddd6c6,.55));m.position.copy(b.c);root.add(m);});
+  sternumMeshes(L(0xddd6c6,.55),L(0xcfd8d4,.55)).forEach(m=>root.add(m));
   const cart=L(0x9fb4bd,.55);
   CARTS.forEach(c=>root.add(new THREE.Mesh(tube(c.curve,c.r,24),cart)));
   PV.forEach(p=>root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0x7a8ce0,1))));
