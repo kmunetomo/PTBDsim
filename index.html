@@ -459,7 +459,7 @@ function softMaterial(strength){
     'float v=1.0-strength*th;gl_FragColor=vec4(v,v,v,1.0);}';
   return m;
 }
-const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.13),spine:boneMaterial(false),rib:boneMaterial(true),duct:xr(.42)};
+const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.22),spine:boneMaterial(false),rib:boneMaterial(true),duct:xr(.42)};
 addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
 {const ms=boneMaterial(false),mx=boneMaterial(false);mx.uniforms.strength.value=.10;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
