@@ -130,9 +130,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <div class="cbar" id="cbar" aria-label="C-armの角度">
       <div class="cang" id="angBig">AP 0°</div>
       <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
-      <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
-      <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がLAO、右がRAO）">
       <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
+      <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
+      <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
       <button class="btn" id="gyroMode" hidden aria-label="傾き操作の対象を切り替え">傾き:針</button>
       <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
     </div>
@@ -690,7 +690,7 @@ $('reset').onclick=()=>{S.depth=0;$('depth').value=0;syncUI();};
 /* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
 let base=null,gotEvent=false;
 let lastRaw=null;
-const CARM_DIR=-1;  // C-armの操作方向（試験：スライダーは左＝LAO・右＝RAO、ひねりも逆向き。元に戻すには 1）
+const CARM_DIR=1;   // C-armの操作方向（1＝スライダー左がRAO・右がLAO、-1で操作とひねりを逆向きに）
 const CARM_GAIN=3;   // C-armモードではひねりの3倍回す（30°ひねるとLAO/RAO 90°）
 /* ひねり（画面の縦軸まわりの回転）の角度。重力に対する傾きでは測れないため、
    端末の向き（alpha/beta/gamma）から回転行列を作り、スマホの長辺方向（端末y軸）の水平面上の向きを使う。
