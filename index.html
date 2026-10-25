@@ -130,9 +130,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <div class="cbar" id="cbar" aria-label="C-armの角度">
       <div class="cang" id="angBig">AP 0°</div>
       <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
-      <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
-      <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がRAO、右がLAO）">
       <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
+      <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がLAO、右がRAO）">
+      <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
       <button class="btn" id="gyroMode" hidden aria-label="傾き操作の対象を切り替え">傾き:針</button>
       <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
     </div>
@@ -592,7 +592,7 @@ function resultText(){
 function syncUI(){
   computeDepth();
   $('angBig').textContent=angText(S.theta);
-  $('theta').value=S.theta;
+  $('theta').value=CARM_DIR*S.theta;
   $('yaw').value=S.yaw;$('pitch').value=S.pitch;
   $('angVal').textContent='水平 '+S.yaw+'° / 頭尾 '+S.pitch+'°';
   $('depVal').textContent=S.eff.toFixed(1)+' cm'+(S.blocked?'（止）':'');
@@ -656,7 +656,7 @@ fCan.addEventListener('click',e=>{
 });
 
 const th=v=>{S.theta=Math.max(-90,Math.min(90,v));syncUI();if(S.gyroMode==='carm')rebase();};
-$('theta').oninput=e=>th(+e.target.value);
+$('theta').oninput=e=>th(CARM_DIR*e.target.value);
 $('thMinus').onclick=()=>th(S.theta-5);
 $('thPlus').onclick=()=>th(S.theta+5);
 $('thZero').onclick=()=>th(0);
@@ -684,6 +684,7 @@ $('reset').onclick=()=>{S.depth=0;$('depth').value=0;syncUI();};
 /* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
 let base=null,gotEvent=false;
 let lastRaw=null;
+const CARM_DIR=-1;  // C-armの操作方向（試験：スライダーは左＝LAO・右＝RAO、ひねりも逆向き。元に戻すには 1）
 const CARM_GAIN=3;   // C-armモードではひねりの3倍回す（30°ひねるとLAO/RAO 90°）
 /* ひねり（画面の縦軸まわりの回転）の角度。重力に対する傾きでは測れないため、
    端末の向き（alpha/beta/gamma）から回転行列を作り、スマホの長辺方向（端末y軸）の水平面上の向きを使う。
@@ -708,10 +709,10 @@ function onOri(e){
   if(e.beta==null)return;gotEvent=true;
   const tw=twistDeg(e),rc=reclineDeg(e);
   lastRaw={tw,rc};
-  if(!base){base={cw:tw-S.theta/CARM_GAIN,ty:tw-S.yaw,rc:rc+S.pitch};toast('今の姿勢を基準にしました');}
+  if(!base){base={cw:tw-CARM_DIR*S.theta/CARM_GAIN,ty:tw-S.yaw,rc:rc+S.pitch};toast('今の姿勢を基準にしました');}
   if(S.gyroMode==='carm'){
     if(S.holdCarm)return;
-    const t=Math.round(Math.max(-90,Math.min(90,wrap180(tw-base.cw)*CARM_GAIN)));
+    const t=Math.round(Math.max(-90,Math.min(90,CARM_DIR*wrap180(tw-base.cw)*CARM_GAIN)));
     if(t!==S.theta){S.theta=t;syncUI();}
     return;
   }
@@ -722,7 +723,7 @@ function onOri(e){
   if(ch)syncUI();
 }
 /* 今の角度を基準に付け直す（固定の解除、モード切替、バーやスライダーから指を離したとき） */
-function rebaseCarm(){if(base&&lastRaw)base.cw=lastRaw.tw-S.theta/CARM_GAIN;}
+function rebaseCarm(){if(base&&lastRaw)base.cw=lastRaw.tw-CARM_DIR*S.theta/CARM_GAIN;}
 function rebaseYaw(){if(base&&lastRaw)base.ty=lastRaw.tw-S.yaw;}
 function rebasePitch(){if(base&&lastRaw)base.rc=lastRaw.rc+S.pitch;}
 function rebase(){if(S.gyroMode==='carm')rebaseCarm();else{if(!S.lockY)rebaseYaw();if(!S.lockP)rebasePitch();}}
