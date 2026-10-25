@@ -75,6 +75,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 .ov{position:absolute;font-family:var(--f-mono);font-size:12.5px;color:#f4f4f0;text-shadow:0 1px 2px #000;pointer-events:none;font-variant-numeric:tabular-nums}
 .ov.tl{top:8px;left:10px}
 .ov.tr{top:8px;right:10px;text-align:right}
+.viewer canvas.axial{position:absolute;inset:auto;top:28px;right:8px;width:120px;height:90px;pointer-events:none;border-radius:8px;background:rgba(12,16,18,.72);border:1px solid var(--line)}
 .ov.bl{top:28px;left:10px}
 .ov.side{top:50%;transform:translateY(-50%);font-size:17px;font-weight:500}
 .lamp{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle;box-shadow:0 0 8px var(--accent)}
@@ -123,6 +124,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <div class="fx noise" id="noise"></div>
     <div class="ov tl" id="ovTL"><span class="lamp"></span>透視</div>
     <div class="ov tr" id="ovTR">AP 0°</div>
+    <canvas class="axial" id="axial" width="240" height="180" aria-label="輪切りの模式図：C-armの向きと針の位置"></canvas>
     <div class="ov bl" id="ovBL">深さ 0.0 cm</div>
     <div class="ov side" id="ovL" style="left:10px">R</div>
     <div class="ov side" id="ovR" style="right:10px"></div>
@@ -392,7 +394,7 @@ function addAnatomy(scene,mat){
 /* 骨：背側(y=-9)ほど濃く、腹側(y=+9)ほど淡い乗算係数。減弱を奥行きで不均一にして前後関係の手がかりにする */
 const boneU={vPost:{value:.58},vAnt:{value:.90}};
 function setBoneDepth(k){boneU.vPost.value=.70-.12*k;boneU.vAnt.value=Math.min(.97,.70+.20*k);}
-setBoneDepth(0.5);   // 背側／腹側の濃淡差は50%で固定
+setBoneDepth(1.0);   // 背側／腹側の濃淡差は100%で固定（前後の手がかりとして強めに）
 const boneMat=new THREE.ShaderMaterial({uniforms:boneU,transparent:true,depthTest:false,depthWrite:false,
   blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,side:THREE.FrontSide,
   vertexShader:'varying float vy;void main(){vec4 w=modelMatrix*vec4(position,1.0);vy=w.y;gl_Position=projectionMatrix*viewMatrix*w;}',
@@ -451,6 +453,42 @@ function placeNeedle(n,h){
 function beam(){const d=V(Math.sin(S.theta*DEG),Math.cos(S.theta*DEG),0);return {d,src:ISO.clone().addScaledVector(d,-SOD),det:ISO.clone().addScaledVector(d,SID-SOD)};}
 function angText(t){return t===0?'AP 0°':(t>0?'LAO ':'RAO ')+Math.abs(t)+'°';}
 
+/* 輪切りの模式図（足側から見た向き＝患者の右が左、腹側が上）。体・脊椎・肝、管球→検出器の向き、刺入点・針・ターゲットを描く */
+function drawAxial(){
+  const c=$('axial');if(!c)return;const x=c.getContext('2d'),W=c.width,H=c.height,k=4.6,cx=W/2,cy=H/2+4;
+  const P=(px,py)=>[cx+px*k,cy-py*k];
+  x.clearRect(0,0,W,H);x.lineWidth=2;
+  // 体
+  x.strokeStyle='rgba(226,233,230,.55)';x.beginPath();x.ellipse(cx,cy,BODY.a*k,BODY.b*k,0,0,7);x.stroke();
+  // 肝（右葉・左葉）
+  x.fillStyle='rgba(185,116,79,.35)';LIVER.forEach(l=>{const [a,b]=P(l.c.x,l.c.y);x.beginPath();x.ellipse(a,b,l.r.x*k,l.r.y*k,0,0,7);x.fill();});
+  // 脊椎（背側）
+  x.fillStyle='rgba(221,214,198,.75)';{const [a,b]=P(0,-6.5);x.beginPath();x.arc(a,b,2.3*k,0,7);x.fill();}
+  // ターゲット
+  const tg=target();if(tg){const [a,b]=P(tg.c.x,tg.c.y);x.fillStyle='#f2a93b';x.beginPath();x.arc(a,b,Math.max(3,tg.r*k),0,7);x.fill();}
+  // X線：管球（背側の四角）→検出器（腹側の板）
+  const t=S.theta*DEG,d=[Math.sin(t),Math.cos(t)],n=[-d[1],d[0]],R=12.5,o=[ISO.x,ISO.y];
+  const sP=P(o[0]-d[0]*R,o[1]-d[1]*R),dP=P(o[0]+d[0]*R,o[1]+d[1]*R);
+  x.strokeStyle='rgba(242,169,59,.9)';x.setLineDash([5,4]);x.beginPath();x.moveTo(...sP);x.lineTo(...dP);x.stroke();x.setLineDash([]);
+  // 矢印の先
+  const ang=Math.atan2(dP[1]-sP[1],dP[0]-sP[0]);x.fillStyle='rgba(242,169,59,.95)';
+  x.beginPath();x.moveTo(dP[0],dP[1]);x.lineTo(dP[0]-11*Math.cos(ang-.45),dP[1]-11*Math.sin(ang-.45));x.lineTo(dP[0]-11*Math.cos(ang+.45),dP[1]-11*Math.sin(ang+.45));x.fill();
+  // 検出器（矢印の先に直交する板）
+  const e1=P(o[0]+d[0]*(R+1.5)+n[0]*6,o[1]+d[1]*(R+1.5)+n[1]*6),e2=P(o[0]+d[0]*(R+1.5)-n[0]*6,o[1]+d[1]*(R+1.5)-n[1]*6);
+  x.strokeStyle='#f2a93b';x.lineWidth=4;x.beginPath();x.moveTo(...e1);x.lineTo(...e2);x.stroke();
+  // 管球
+  x.fillStyle='#f2a93b';x.fillRect(sP[0]-5,sP[1]-5,10,10);
+  // 針（刺入点の手前のハブ側から針先まで）
+  if(S.entry){
+    const dir=needleDir(),tp=tip(),hub=tp.clone().addScaledVector(dir,-NEEDLE_LEN);
+    x.strokeStyle='#ffffff';x.lineWidth=2.5;x.beginPath();x.moveTo(...P(hub.x,hub.y));x.lineTo(...P(tp.x,tp.y));x.stroke();
+    x.fillStyle='#f2d33b';x.beginPath();x.arc(...P(tp.x,tp.y),3.2,0,7);x.fill();
+    x.fillStyle='#ffffff';x.beginPath();x.arc(...P(S.entry.x,S.entry.y),2.5,0,7);x.fill();
+  }
+  // 方向ラベル
+  x.font='600 17px "IBM Plex Mono",monospace';x.fillStyle='rgba(226,233,230,.85)';x.textAlign='center';x.textBaseline='middle';
+  x.fillText('R',10,cy);x.fillText('L',W-10,cy);x.fillText('A',cx,9);
+}
 function renderFluoro(){
   const b=beam();
   fCam.position.copy(b.src);fCam.lookAt(ISO);fCam.updateMatrixWorld();
@@ -462,6 +500,7 @@ function renderFluoro(){
   });
   placeGuides(fGT,fGE);
   fr.render(fScene,fCam);
+  drawAxial();
   // 方向マーカー：患者の右(R)／腹側(A)が画面のどちら側か
   const right=V(1,0,0).applyQuaternion(fCam.quaternion);
   const dR=right.dot(V(-1,0,0)), dA=right.dot(V(0,1,0));
@@ -754,7 +793,7 @@ $('scrim').onclick=()=>setSheet(false);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet').hidden)setSheet(false);});
 
 /* 表示切替 */
-const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR','cbar'];
+const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR','cbar','axial'];
 $('go3d').onclick=()=>{
   if(!tr)init3D();
   S.mode='3d';fxEls.forEach(id=>$(id).hidden=true);$('toast').hidden=true;
