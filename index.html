@@ -34,13 +34,13 @@ body{
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-.app{display:grid;grid-template-columns:minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
+.app{display:grid;grid-template-columns:68px minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
 .maincol{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
 .maincol .viewer{flex:1 1 auto}
-.cbar{position:absolute;left:8px;right:8px;bottom:max(14%,40px);display:flex;align-items:center;gap:6px;background:rgba(20,26,29,.82);border:1px solid var(--line);border-radius:10px;padding:4px 6px;z-index:2}
-.cbar .btn{flex:0 0 auto;min-height:30px;padding:3px 8px;font-size:12px}
-.cbar input[type=range]{flex:1 1 auto;min-width:60px;height:30px}
-.cang{font-family:var(--f-mono);font-size:13px;font-weight:500;min-width:4.8em;text-align:center;font-variant-numeric:tabular-nums}
+.cbar{display:flex;min-height:0;flex-direction:column;align-items:stretch;gap:5px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 5px}
+.cbar .btn{flex:0 0 auto;min-height:30px;padding:2px 2px;font-size:11.5px;line-height:1.15}
+.cbar input[type=range]{writing-mode:vertical-lr;direction:rtl;flex:1 1 auto;min-height:50px;width:32px;height:auto;align-self:center;margin:2px 0}
+.cang{font-family:var(--f-mono);font-size:12px;font-weight:500;text-align:center;font-variant-numeric:tabular-nums;line-height:1.2}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-width:0;min-height:0}
 .sec{display:flex;flex-direction:column;gap:5px}
 .lab{font-size:11px;color:var(--muted);letter-spacing:.06em}
@@ -113,9 +113,17 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 </style>
 
 <div class="app" id="app">
-  <!-- 左：C-arm -->
-
-  <!-- 左：透視 / 3D と、その下にC-armバー -->
+  <!-- 左端：C-arm（縦スライダー、上がLAO） -->
+  <div class="cbar" id="cbar" aria-label="C-armの角度">
+    <div class="cang" id="angBig">AP 0°</div>
+    <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO<br>5°</button>
+    <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（上がLAO、下がRAO）">
+    <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO<br>5°</button>
+    <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
+    <button class="btn" id="gyroMode" hidden aria-label="傾き操作の対象を切り替え">傾き:針</button>
+    <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
+  </div>
+  <!-- 中央：透視 / 3D -->
   <div class="maincol">
   <main class="viewer" id="viewer">
     <canvas id="fluoro" aria-label="仮想透視画像。タップで刺入点を設定"></canvas>
@@ -127,15 +135,6 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <div class="ov side" id="ovL" style="left:10px">R</div>
     <div class="ov side" id="ovR" style="right:10px"></div>
     <div class="toast" id="toast" hidden></div>
-    <div class="cbar" id="cbar" aria-label="C-armの角度">
-      <div class="cang" id="angBig">AP 0°</div>
-      <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
-      <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO 5°</button>
-      <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（左がLAO、右がRAO）">
-      <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO 5°</button>
-      <button class="btn" id="gyroMode" hidden aria-label="傾き操作の対象を切り替え">傾き:針</button>
-      <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
-    </div>
 
     <canvas id="three" hidden aria-label="3D答え合わせ。ドラッグで回転、ピンチで拡大"></canvas>
     <div class="resmini row" id="resMini" hidden>
@@ -722,7 +721,8 @@ $('reset').onclick=()=>{S.depth=0;$('depth').value=0;syncUI();};
 /* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
 let base=null,gotEvent=false;
 let lastRaw=null;
-const CARM_DIR=-1;  // C-armの操作方向（-1＝スライダー左がLAO・右がRAO、1で操作とひねりを逆向きに）
+const CARM_DIR=1;   // C-armスライダーの向き（縦置き。1＝上がLAO・下がRAO、-1で逆）
+const TWIST_DIR=-1; // ひねり操作の向き（-1で現行、1で逆）
 const CARM_GAIN=3;   // C-armモードではひねりの3倍回す（30°ひねるとLAO/RAO 90°）
 /* ひねり（画面の縦軸まわりの回転）の角度。重力に対する傾きでは測れないため、
    端末の向き（alpha/beta/gamma）から回転行列を作り、スマホの長辺方向（端末y軸）の水平面上の向きを使う。
@@ -747,10 +747,10 @@ function onOri(e){
   if(e.beta==null)return;gotEvent=true;
   const tw=twistDeg(e),rc=reclineDeg(e);
   lastRaw={tw,rc};
-  if(!base){base={cw:tw-CARM_DIR*S.theta/CARM_GAIN,ty:tw-S.yaw,rc:rc+S.pitch};toast('今の姿勢を基準にしました');}
+  if(!base){base={cw:tw-TWIST_DIR*S.theta/CARM_GAIN,ty:tw-S.yaw,rc:rc+S.pitch};toast('今の姿勢を基準にしました');}
   if(S.gyroMode==='carm'){
     if(S.holdCarm)return;
-    const t=Math.round(Math.max(-90,Math.min(90,CARM_DIR*wrap180(tw-base.cw)*CARM_GAIN)));
+    const t=Math.round(Math.max(-90,Math.min(90,TWIST_DIR*wrap180(tw-base.cw)*CARM_GAIN)));
     if(t!==S.theta){S.theta=t;syncUI();}
     return;
   }
@@ -761,7 +761,7 @@ function onOri(e){
   if(ch)syncUI();
 }
 /* 今の角度を基準に付け直す（固定の解除、モード切替、バーやスライダーから指を離したとき） */
-function rebaseCarm(){if(base&&lastRaw)base.cw=lastRaw.tw-CARM_DIR*S.theta/CARM_GAIN;}
+function rebaseCarm(){if(base&&lastRaw)base.cw=lastRaw.tw-TWIST_DIR*S.theta/CARM_GAIN;}
 function rebaseYaw(){if(base&&lastRaw)base.ty=lastRaw.tw-S.yaw;}
 function rebasePitch(){if(base&&lastRaw)base.rc=lastRaw.rc+S.pitch;}
 function rebase(){if(S.gyroMode==='carm')rebaseCarm();else{if(!S.lockY)rebaseYaw();if(!S.lockP)rebasePitch();}}
@@ -825,7 +825,7 @@ $('scrim').onclick=()=>setSheet(false);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet').hidden)setSheet(false);});
 
 /* 表示切替 */
-const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR','cbar'];
+const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR'];
 $('go3d').onclick=()=>{
   if(!tr)init3D();
   S.mode='3d';fxEls.forEach(id=>$(id).hidden=true);$('toast').hidden=true;
