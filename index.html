@@ -341,13 +341,15 @@ function inLiver(p){
   return ((p.y-q.yc)/(q.yh*f))**2+((p.z-q.zc)/(q.zh*f))**2<=1;
 }
 function inBody(p){return (p.x/BODY.a)**2+(p.y/BODY.b)**2<=1;}
+/* 当たり判定の甘さ：見た目の太さに対する割合。肋骨は帯の中心部65%、肋軟骨は中心部50%だけで判定し、ふちをかすめるのは通す */
+const HIT_RIB=0.65,HIT_CART=0.5;
 function hitsRib(p){
   return RIBS.some(r=>{
     const s=r.samples;let m=1e9,mi=0;for(let i=0;i<s.length;i++){const d=p.distanceToSquared(s[i]);if(d<m){m=d;mi=i;}}
     if(m>4)return false;
     const f=ribTaper(mi/(s.length-1)),o=p.clone().sub(s[mi]),a=s[Math.min(mi+1,s.length-1)].clone().sub(s[Math.max(mi-1,0)]).normalize();
     o.addScaledVector(a,-o.dot(a));   // 断面内の成分だけにする
-    const w=r.r*RIB_W*f+0.08,t=r.r*RIB_T*f+0.08,oz=o.z,op=Math.hypot(o.x,o.y);
+    const w=r.r*RIB_W*f*HIT_RIB,t=r.r*RIB_T*f*HIT_RIB,oz=o.z,op=Math.hypot(o.x,o.y);
     return (oz/w)**2+(op/t)**2<=1;
   });
 }
@@ -356,7 +358,7 @@ function inBox(p,b){return Math.abs(p.x-b.c.x)<=b.s.x/2+.08&&Math.abs(p.y-b.c.y)
 function hitWhat(p){
   if(hitsRib(p))return '肋骨';
   {const b=STERNUM.find(b=>inBox(p,b));if(b)return b.name;}
-  if(CARTS.some(c=>polyDist(p,c.samples)<c.r+0.08))return '肋軟骨';
+  if(CARTS.some(c=>polyDist(p,c.samples)<c.r*HIT_CART))return '肋軟骨';
   return null;
 }
 function surfaceNormal(p){return V(p.x/BODY.a**2,p.y/BODY.b**2,0).normalize();}
@@ -687,7 +689,13 @@ $('nsB').onclick=()=>nudge(0,1);
 function preset(kind){
   if(S.depth>0){toast('針を抜いてから刺入点を変えてください');return;}
   if(S.tgt){S.tgt=kind==='R'?'B6':'B3';$('tgt').value=S.tgt;}
-  if(kind==='R'){const y=-1;setEntry(V(-BODY.a*Math.sqrt(1-(y/BODY.b)**2),y,-4.0));}
+  if(kind==='R'){
+    /* 右肋間：頭尾方向に少しずつずらして、直下に肋骨のない肋間の真ん中あたりを選ぶ */
+    const y=-1,x=-BODY.a*Math.sqrt(1-(y/BODY.b)**2),clear=z=>{const p=V(x,y,z),n=surfaceNormal(p);return [0.6,1.2,2].every(d=>!hitWhat(p.clone().addScaledVector(n,-d)));};
+    let best=-4.0,bestLen=-1;
+    for(let z=-6.5;z<=-1.5;z+=0.1){if(!clear(z))continue;let a=z,b=z;while(a>-9&&clear(a-0.1))a-=0.1;while(b<1&&clear(b+0.1))b+=0.1;if(b-a>bestLen){bestLen=b-a;best=(a+b)/2;}}
+    setEntry(V(x,y,best));
+  }
   else{const x=2;setEntry(V(x,BODY.b*Math.sqrt(1-(x/BODY.a)**2),-6));}
 }
 $('preR').onclick=()=>preset('R');
