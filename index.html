@@ -585,7 +585,7 @@ function drawPic(){
   // 臍の高さの目安として正中線を薄く
   x.strokeStyle='rgba(226,233,230,.25)';x.lineWidth=1.5;x.beginPath();x.moveTo(...P(0,zt));x.lineTo(...P(0,-14));x.stroke();
   // 刺入点
-  if(S.entry){const [a,b]=P(S.entry.x,S.entry.z);x.fillStyle='#ff3d7f';x.beginPath();x.arc(a,b,7,0,7);x.fill();x.strokeStyle='#1d1406';x.lineWidth=2;x.stroke();}
+  if(S.entry){const [a,b]=P(S.entry.x,S.entry.z);x.fillStyle='#26f0ff';x.beginPath();x.arc(a,b,7,0,7);x.fill();x.strokeStyle='#1d1406';x.lineWidth=2;x.stroke();}
   x.font='600 20px "IBM Plex Mono",monospace';x.fillStyle=line;x.textAlign='center';x.textBaseline='middle';
   x.fillText('R',14,yt+10);x.fillText('L',W-14,yt+10);
   // ② 足側から見たC-arm（体の輪切りは輪郭だけ）
