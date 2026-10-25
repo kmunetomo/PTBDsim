@@ -498,6 +498,9 @@ const fNeedle=new THREE.Mesh(G.needle,xr(.18));
 /* 練習用：針先をピンクの小さな点で示す（透視には実在しない補助表示）。ブルズアイのとき、リングの中心に点として見える */
 const fTipMark=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color:0xff3d7f,transparent:true,depthTest:false,depthWrite:false}));
 fTipMark.renderOrder=12;fTipMark.visible=false;fScene.add(fTipMark);
+/* 皮膚の刺入点：穿刺が始まったら（深さ>0）シアンの点で示す。角度を振るとこの点を支点に針が回ることが分かる */
+const fSkinMark=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color:0x26f0ff,transparent:true,depthTest:false,depthWrite:false}));
+fSkinMark.renderOrder=12;fSkinMark.visible=false;fScene.add(fSkinMark);
 /* 透視用の針の手元：プラスチックのハブ（淡い）の両端に金属リングを付ける。
    X線と針が一直線になると、2つのリングが同心円になり中心に針が点で重なる（ブルズアイ）。ずれるとリングが離れる */
 const fHub=(()=>{
@@ -600,6 +603,7 @@ function renderFluoro(){
   placeNeedle(fNeedle,fHub);
   fTipMark.visible=!!S.entry;
   if(S.entry)fTipMark.position.copy(tip());
+  fSkinMark.visible=!!S.entry&&S.eff>0;if(fSkinMark.visible)fSkinMark.position.copy(S.entry);
   const tg=target();
   [fTgt,fTgtDot].forEach(m=>{
     m.visible=!!tg;
@@ -940,7 +944,7 @@ function resize(){
   // 回転中心で横46 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
   const halfH=Math.max(HALF_H,HALF_W/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
   fGT.userData.r=2*halfH/h;
-  fTipMark.scale.setScalar(2.2*2*halfH/h);   // 針先の点は画面上で直径約4〜5 px   // 回転中心で1 pxに相当する半径＝幅約2 px
+  fTipMark.scale.setScalar(2.2*2*halfH/h);fSkinMark.scale.setScalar(2.2*2*halfH/h);   // 針先の点は画面上で直径約4〜5 px   // 回転中心で1 pxに相当する半径＝幅約2 px
   fCam.updateProjectionMatrix();renderFluoro();
   if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
 }
