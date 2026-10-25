@@ -752,7 +752,8 @@ $('depth').oninput=e=>{if(needEntry()){e.target.value=0;return;}S.depth=+e.targe
   syncUI();};});
 $('tgt').onchange=e=>{S.tgt=e.target.value;syncUI();};
 $('tgtSize').oninput=e=>{S.tgtD=+e.target.value;$('tgtVal').textContent=S.tgtD+' mm';syncUI();};
-$('reset').onclick=()=>{S.depth=0;$('depth').value=0;syncUI();};
+/* 「針を抜く」：深さと針の角度（水平・頭尾）を0に戻す。傾き操作中は今の姿勢を新しい基準にする */
+$('reset').onclick=()=>{S.depth=0;$('depth').value=0;S.yaw=0;S.pitch=0;if(typeof rebaseYaw==='function'){rebaseYaw();rebasePitch();}syncUI();};
 
 /* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
 let base=null,gotEvent=false;
