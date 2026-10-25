@@ -342,8 +342,12 @@ function inLiver(p){
 function inBody(p){return (p.x/BODY.a)**2+(p.y/BODY.b)**2<=1;}
 function hitsRib(p){
   return RIBS.some(r=>{
-    let m=1e9,mi=0;const s=r.samples;for(let i=0;i<s.length-1;i++){const d=segDist(p,s[i],s[i+1]);if(d<m){m=d;mi=i;}}
-    return m<r.r*ribTaper(mi/(s.length-1))+0.08;
+    const s=r.samples;let m=1e9,mi=0;for(let i=0;i<s.length;i++){const d=p.distanceToSquared(s[i]);if(d<m){m=d;mi=i;}}
+    if(m>4)return false;
+    const f=ribTaper(mi/(s.length-1)),o=p.clone().sub(s[mi]),a=s[Math.min(mi+1,s.length-1)].clone().sub(s[Math.max(mi-1,0)]).normalize();
+    o.addScaledVector(a,-o.dot(a));   // 断面内の成分だけにする
+    const w=r.r*RIB_W*f+0.08,t=r.r*RIB_T*f+0.08,oz=o.z,op=Math.hypot(o.x,o.y);
+    return (oz/w)**2+(op/t)**2<=1;
   });
 }
 function inBox(p,b){return Math.abs(p.x-b.c.x)<=b.s.x/2+.08&&Math.abs(p.y-b.c.y)<=b.s.y/2+.08&&Math.abs(p.z-b.c.z)<=b.s.z/2+.08;}
@@ -393,7 +397,7 @@ function xr(v){
   return new THREE.MeshBasicMaterial({color:new THREE.Color(v,v,v),transparent:true,depthTest:false,depthWrite:false,
     blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,side:THREE.FrontSide});
 }
-function tube(c,r,seg){return new THREE.TubeGeometry(c,seg||48,r,12,false);}
+function tube(c,r,seg,rad){return new THREE.TubeGeometry(c,seg||48,r,rad||12,false);}
 const G={};
 G.body=new THREE.CylinderGeometry(1,1,BODY.z1-BODY.z0,64);
 G.sphere=new THREE.SphereGeometry(1,48,32);
@@ -409,16 +413,23 @@ G.liver=(()=>{
 G.vert=new THREE.CylinderGeometry(2.3,2.3,2.5,24);
 G.spin=new THREE.BoxGeometry(0.9,2.6,1.6);
 G.ducts=DUCTS.map(d=>tube(d.curve,d.r*DUCT_K));
-/* 肋骨は腹側端に向かって細くする（背側の太さの65%まで） */
+/* 肋骨は平たい帯：頭尾方向に幅広く（RIB_W倍）、厚みは薄く（RIB_T倍）。腹側端に向かって細くする（背側の65%まで） */
+const RIB_W=1.5,RIB_T=0.7;
 function ribTaper(u){const t=Math.max(0,Math.min(1,(u-0.55)/0.45));return 1-0.35*t*t*(3-2*t);}
 G.ribs=RIBS.map(r=>{
-  const seg=80,rad=12,g=tube(r.curve,r.r,seg),pos=g.attributes.position,p=new THREE.Vector3();
+  const seg=80,rad=16,g=tube(r.curve,r.r,seg,rad),pos=g.attributes.position,p=new THREE.Vector3();
   for(let i=0;i<=seg;i++){
     const u=i/seg,c=r.curve.getPointAt(u),f=ribTaper(u);
-    for(let j=0;j<=rad;j++){const k=i*(rad+1)+j;p.fromBufferAttribute(pos,k).sub(c).multiplyScalar(f).add(c);pos.setXYZ(k,p.x,p.y,p.z);}
+    for(let j=0;j<=rad;j++){
+      const k=i*(rad+1)+j;p.fromBufferAttribute(pos,k).sub(c);
+      p.set(p.x*RIB_T*f,p.y*RIB_T*f,p.z*RIB_W*f).add(c);pos.setXYZ(k,p.x,p.y,p.z);
+    }
   }
   pos.needsUpdate=true;g.computeVertexNormals();return g;
 });
+/* 椎弓根（AP像で楕円の輪に見える皮質）と横突起 */
+G.pedicle=new THREE.TorusGeometry(0.55,0.17,10,28);
+G.tproc=new THREE.CylinderGeometry(0.42,0.32,2.8,14);
 G.needle=new THREE.CylinderGeometry(0.06,0.06,NEEDLE_LEN,8);
 G.hub=new THREE.CylinderGeometry(0.45,0.45,1.6,16);
 
@@ -431,6 +442,10 @@ function addAnatomy(scene,mat){
   SPINE.forEach(z=>{
     const v=new THREE.Mesh(G.vert,mat.spine||mat.bone);v.rotation.x=Math.PI/2;v.position.set(0,-6.5,z);scene.add(v);
     const s=new THREE.Mesh(G.spin,mat.spine||mat.bone);s.position.set(0,-10,z-0.3);scene.add(s);
+    [-1,1].forEach(sd=>{
+      const pd=new THREE.Mesh(G.pedicle,mat.spine||mat.bone);pd.rotation.x=Math.PI/2;pd.scale.set(1,1.35,1);pd.position.set(sd*1.75,-8.9,z+0.3);scene.add(pd);
+      const tp=new THREE.Mesh(G.tproc,mat.spine||mat.bone);tp.rotation.z=Math.PI/2;tp.scale.set(1,1,0.8);tp.position.set(sd*3.0,-9.5,z+0.4);scene.add(tp);
+    });
   });
   G.ducts.forEach(g=>{const m=new THREE.Mesh(g,mat.duct);scene.add(m);DUCT_MESHES.push(m);});
 }
@@ -447,7 +462,7 @@ function boneMaterial(along){
       'float depth=clamp((vW.y+9.0)/18.0,0.0,1.0);'+          // 0=背側 1=腹側
       'float edge=mix(0.62,0.22,depth);'+                     // 背側ほどふちのぼけ幅が広い
       'float th=smoothstep(0.0,edge,c);'+
-      'float an=mix(1.0,mix(1.0,0.45,smoothstep(0.5,1.0,vUv.x)),along);'+  // 肋骨は腹側端に向かって淡く
+      'float an=mix(1.0,mix(1.0,0.12,smoothstep(0.35,0.9,vUv.x)),along);'+  // 肋骨は腹側に向かって急に淡く（腹側はほぼ見えない）
       'float v=1.0-strength*th*an;gl_FragColor=vec4(v,v,v,1.0);}'});
 }
 /* 軟部組織（肝・心臓）：通過する厚みに比例して淡く写す。ふちはなだらかに */
@@ -458,7 +473,7 @@ function softMaterial(strength){
     'float v=1.0-strength*th;gl_FragColor=vec4(v,v,v,1.0);}';
   return m;
 }
-const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.22),spine:boneMaterial(false),rib:boneMaterial(true),duct:xr(.42)};
+const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.22),spine:boneMaterial(false),rib:(()=>{const m=boneMaterial(true);m.uniforms.strength.value=.13;return m;})(),duct:xr(.42)};
 addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
 {const ms=boneMaterial(false),mx=boneMaterial(false);mx.uniforms.strength.value=.10;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
