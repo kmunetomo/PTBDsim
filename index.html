@@ -408,7 +408,7 @@ function addAnatomy(scene,mat){
    ・管球に近い背側ほど幾何学的なぼけが大きいので、ふちの淡くなる幅を広げる（腹側はシャープ）
    ・肋骨は解剖に合わせ、腹側（肋軟骨移行部）に向かって細く淡くする（形状はG.ribsで先細り） */
 function boneMaterial(along){
-  return new THREE.ShaderMaterial({uniforms:{strength:{value:.30},along:{value:along?1:0}},transparent:true,depthTest:false,depthWrite:false,
+  return new THREE.ShaderMaterial({uniforms:{strength:{value:.20},along:{value:along?1:0}},transparent:true,depthTest:false,depthWrite:false,
     blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,side:THREE.FrontSide,
     vertexShader:'varying vec3 vN;varying vec3 vW;varying vec2 vUv;void main(){vec4 w=modelMatrix*vec4(position,1.0);vW=w.xyz;vN=normalize(mat3(modelMatrix)*normal);vUv=uv;gl_Position=projectionMatrix*viewMatrix*w;}',
     fragmentShader:'uniform float strength;uniform float along;varying vec3 vN;varying vec3 vW;varying vec2 vUv;'+
