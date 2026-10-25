@@ -429,8 +429,8 @@ G.ribs=RIBS.map(r=>{
   pos.needsUpdate=true;g.computeVertexNormals();return g;
 });
 /* 椎弓根（AP像で楕円の輪に見える皮質）と横突起 */
-G.pedicle=new THREE.TorusGeometry(0.55,0.17,10,28);
-G.tproc=new THREE.CylinderGeometry(0.42,0.32,2.8,14);
+G.pedicle=new THREE.TorusGeometry(0.5,0.11,10,28);
+G.tproc=new THREE.CylinderGeometry(0.3,0.2,2.8,14);
 G.needle=new THREE.CylinderGeometry(0.06,0.06,NEEDLE_LEN,8);
 G.hub=new THREE.CylinderGeometry(0.45,0.45,1.6,16);
 
@@ -444,8 +444,8 @@ function addAnatomy(scene,mat){
     const v=new THREE.Mesh(G.vert,mat.spine||mat.bone);v.rotation.x=Math.PI/2;v.position.set(0,-6.5,z);scene.add(v);
     const s=new THREE.Mesh(G.spin,mat.spine||mat.bone);s.position.set(0,-10,z-0.3);scene.add(s);
     [-1,1].forEach(sd=>{
-      const pd=new THREE.Mesh(G.pedicle,mat.spine||mat.bone);pd.rotation.x=Math.PI/2;pd.scale.set(1,1.35,1);pd.position.set(sd*1.75,-8.9,z+0.3);scene.add(pd);
-      const tp=new THREE.Mesh(G.tproc,mat.spine||mat.bone);tp.rotation.z=Math.PI/2;tp.scale.set(1,1,0.8);tp.position.set(sd*3.0,-9.5,z+0.4);scene.add(tp);
+      const pd=new THREE.Mesh(G.pedicle,mat.post||mat.spine||mat.bone);pd.rotation.x=Math.PI/2;pd.scale.set(1,1.35,1);pd.position.set(sd*1.75,-8.9,z+0.3);scene.add(pd);
+      const tp=new THREE.Mesh(G.tproc,mat.post||mat.spine||mat.bone);tp.rotation.z=Math.PI/2;tp.scale.set(1,1,0.8);tp.position.set(sd*3.0,-9.5,z+0.4);scene.add(tp);
     });
   });
   G.ducts.forEach(g=>{const m=new THREE.Mesh(g,mat.duct);scene.add(m);DUCT_MESHES.push(m);});
@@ -474,7 +474,7 @@ function softMaterial(strength){
     'float v=1.0-strength*th;gl_FragColor=vec4(v,v,v,1.0);}';
   return m;
 }
-const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.22),spine:boneMaterial(false),rib:(()=>{const m=boneMaterial(true);m.uniforms.strength.value=.13;return m;})(),duct:xr(.42)};
+const fMat={body:xr(.93),liver:softMaterial(.11),heart:softMaterial(.22),spine:boneMaterial(false),post:(()=>{const m=boneMaterial(false);m.uniforms.strength.value=.11;return m;})(),rib:(()=>{const m=boneMaterial(true);m.uniforms.strength.value=.13;return m;})(),duct:xr(.42)};
 addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
 {const ms=boneMaterial(false),mx=boneMaterial(false);ms.uniforms.strength.value=.07;mx.uniforms.strength.value=.04;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
