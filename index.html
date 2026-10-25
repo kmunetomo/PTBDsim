@@ -75,6 +75,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 .ov{position:absolute;font-family:var(--f-mono);font-size:12.5px;color:#f4f4f0;text-shadow:0 1px 2px #000;pointer-events:none;font-variant-numeric:tabular-nums}
 .ov.tl{top:8px;left:10px}
 .ov.tr{top:8px;right:10px;text-align:right}
+.viewer canvas.pic{position:absolute;inset:auto;top:28px;right:8px;width:76px;height:99px;pointer-events:none;border-radius:8px;background:var(--panel);border:1px solid var(--line)}
 .ov.bl{top:28px;left:10px}
 .ov.side{top:50%;transform:translateY(-50%);font-size:17px;font-weight:500}
 .lamp{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle;box-shadow:0 0 8px var(--accent)}
@@ -131,6 +132,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <div class="fx noise" id="noise"></div>
     <div class="ov tl" id="ovTL"><span class="lamp"></span>透視</div>
     <div class="ov tr" id="ovTR">AP 0°</div>
+    <canvas class="pic" id="pic" width="200" height="260" aria-label="正面から見た体表と刺入点、C-armの向き"></canvas>
     <div class="ov bl" id="ovBL">深さ 0.0 cm</div>
     <div class="ov side" id="ovL" style="left:10px">R</div>
     <div class="ov side" id="ovR" style="right:10px"></div>
@@ -544,6 +546,33 @@ function placeNeedle(n,h){
 function beam(){const d=V(Math.sin(S.theta*DEG),Math.cos(S.theta*DEG),0);return {d,src:ISO.clone().addScaledVector(d,-SOD),det:ISO.clone().addScaledVector(d,SID-SOD)};}
 function angText(t){return t===0?'AP 0°':(t>0?'LAO ':'RAO ')+Math.abs(t)+'°';}
 
+/* 右上の小さな図：正面から見た体表（中身は描かない）と刺入点、足側から見たC-armの向き。
+   針の向きや胆管は描かない（答えにならないように） */
+function drawPic(){
+  const c=$('pic');if(!c)return;const x=c.getContext('2d'),W=c.width,H=c.height;x.clearRect(0,0,W,H);
+  const line='rgba(226,233,230,.75)',acc='#f2a93b';
+  // ① 正面の体表（患者の右が左）。頭尾 z=+16〜-14 を描く
+  const k=4.4,cx=W/2,zt=16,yt=12;const P=(px,pz)=>[cx+px*k,yt+(zt-pz)*k];
+  x.strokeStyle=line;x.lineWidth=2.5;x.beginPath();
+  const half=z=>z>8?BODY.a*(0.88+0.12*Math.min(1,(16-z)/8)):z>-6?BODY.a:BODY.a*(1-0.08*Math.min(1,(-6-z)/8));
+  for(let z=zt;z>=-14;z-=1){const [a,b]=P(-half(z),z);z===zt?x.moveTo(a,b):x.lineTo(a,b);}
+  for(let z=-14;z<=zt;z+=1){const [a,b]=P(half(z),z);x.lineTo(a,b);}
+  x.stroke();
+  // 臍の高さの目安として正中線を薄く
+  x.strokeStyle='rgba(226,233,230,.25)';x.lineWidth=1.5;x.beginPath();x.moveTo(...P(0,zt));x.lineTo(...P(0,-14));x.stroke();
+  // 刺入点
+  if(S.entry){const [a,b]=P(S.entry.x,S.entry.z);x.fillStyle=acc;x.beginPath();x.arc(a,b,7,0,7);x.fill();x.strokeStyle='#1d1406';x.lineWidth=2;x.stroke();}
+  x.font='600 20px "IBM Plex Mono",monospace';x.fillStyle=line;x.textAlign='center';x.textBaseline='middle';
+  x.fillText('R',14,yt+10);x.fillText('L',W-14,yt+10);
+  // ② 足側から見たC-arm（体の輪切りは輪郭だけ）
+  const ay=H-52,ar=34,ex=34,ey=23;
+  x.strokeStyle=line;x.lineWidth=2;x.beginPath();x.ellipse(cx,ay,ex,ey,0,0,7);x.stroke();
+  const t=S.theta*DEG,dx=Math.sin(t),dy=-Math.cos(t);  // 画面上は腹側が上
+  const tube=[cx-dx*ar*1.25,ay-dy*ar*1.25],det=[cx+dx*ar*1.25,ay+dy*ar*1.25];
+  x.strokeStyle='rgba(242,169,59,.55)';x.setLineDash([5,4]);x.beginPath();x.moveTo(...tube);x.lineTo(...det);x.stroke();x.setLineDash([]);
+  x.fillStyle=acc;x.fillRect(tube[0]-6,tube[1]-6,12,12);
+  const nx=-dy,ny=dx;x.strokeStyle=acc;x.lineWidth=5;x.beginPath();x.moveTo(det[0]+nx*16,det[1]+ny*16);x.lineTo(det[0]-nx*16,det[1]-ny*16);x.stroke();
+}
 function renderFluoro(){
   const b=beam();
   fCam.position.copy(b.src);fCam.lookAt(ISO);fCam.updateMatrixWorld();
@@ -555,6 +584,7 @@ function renderFluoro(){
   });
   placeGuides(fGT,fGE);
   fr.render(fScene,fCam);
+  drawPic();
   // 方向マーカー：患者の右(R)／腹側(A)が画面のどちら側か
   const right=V(1,0,0).applyQuaternion(fCam.quaternion);
   const dR=right.dot(V(-1,0,0)), dA=right.dot(V(0,1,0));
@@ -862,7 +892,7 @@ $('scrim').onclick=()=>setSheet(false);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet').hidden)setSheet(false);});
 
 /* 表示切替 */
-const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR'];
+const fxEls=['fluoro','vig','noise','ovTL','ovTR','ovBL','ovL','ovR','pic'];
 $('go3d').onclick=()=>{
   if(!tr)init3D();
   S.mode='3d';fxEls.forEach(id=>$(id).hidden=true);$('toast').hidden=true;
