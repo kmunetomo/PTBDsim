@@ -132,6 +132,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（上がLAO、下がRAO）">
     <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO<br>5°</button>
     <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
+    <button class="btn" id="th90" aria-label="今の角度から90°回す">90°</button>
   </div>
   <!-- 中央：透視 / 3D -->
   <div class="maincol">
@@ -250,7 +251,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <ul class="hl">
       <li><b>刺入点</b>：右パネルのボタン、または透視をタップ</li>
       <li><b>針の向き</b>：スマホを回転させる（水平）、起こす／寝かせる（頭尾）</li>
-      <li><b>C-arm</b>：透視を長押ししながら回転させる。または左端のバー</li>
+      <li><b>C-arm</b>：透視を長押ししながら回転させる。または左端のバー（90°で直交する角度へ）</li>
       <li><b>穿刺</b>：右端のバー（上で刺入）</li>
       <li><b>抜針</b>：深さと向きをリセット</li>
       <li><b>3Dで確認</b>：答え合わせ</li>
@@ -825,6 +826,8 @@ $('theta').oninput=e=>th(CARM_DIR*e.target.value);
 $('thMinus').onclick=()=>th(S.theta-5);
 $('thPlus').onclick=()=>th(S.theta+5);
 $('thZero').onclick=()=>th(0);
+/* 直交：今の角度から可動範囲（±90°）に収まる側へ90°回す（APのときはLAO 90°） */
+$('th90').onclick=()=>th(S.theta>0?S.theta-90:S.theta+90);
 /* 胆管の太さ：末梢枝（半径0.4 cm＝径8 mm）を基準に全枝を拡縮し、形状を作り直す */
 $('dw').oninput=e=>{
   DUCT_K=+e.target.value/8;$('dwVal').textContent=e.target.value+' mm';
