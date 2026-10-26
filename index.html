@@ -128,9 +128,9 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="cbar" id="cbar" aria-label="C-armの角度">
     <button class="btn" id="openHelp" aria-haspopup="dialog">説明</button>
     <div class="cang" id="angBig">AP 0°</div>
-    <button class="btn" id="thPlus" aria-label="5度LAO側へ">LAO<br>5°</button>
+    <div class="hint" style="text-align:center;font-size:10.5px">LAO</div>
     <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（上がLAO、下がRAO）">
-    <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO<br>5°</button>
+    <div class="hint" style="text-align:center;font-size:10.5px">RAO</div>
     <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
     <button class="btn" id="th90" aria-label="今の角度から90°回す">90°</button>
   </div>
@@ -251,7 +251,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <ul class="hl">
       <li><b>刺入点</b>：右パネルのボタン、または透視をタップ</li>
       <li><b>針の向き</b>：スマホを回転させる（水平）、起こす／寝かせる（頭尾）</li>
-      <li><b>C-arm</b>：透視を長押ししながら回転させる。または左端のバー（90°で直交する角度へ）</li>
+      <li><b>C-arm</b>：透視を長押しして左右にドラッグ、または長押ししたままスマホを回転。左端のバーでも可（90°で直交する角度へ）</li>
       <li><b>穿刺</b>：右端のバー（上で刺入）</li>
       <li><b>抜針</b>：深さと向きをリセット</li>
       <li><b>3Dで確認</b>：答え合わせ</li>
@@ -823,8 +823,6 @@ fCan.addEventListener('click',e=>{
 
 const th=v=>{S.theta=Math.max(-90,Math.min(90,v));syncUI();if(S.gyroMode==='carm')rebase();};
 $('theta').oninput=e=>th(CARM_DIR*e.target.value);
-$('thMinus').onclick=()=>th(S.theta-5);
-$('thPlus').onclick=()=>th(S.theta+5);
 $('thZero').onclick=()=>th(0);
 /* 直交：今の角度から可動範囲（±90°）に収まる側へ90°回す（APのときはLAO 90°） */
 $('th90').onclick=()=>th(S.theta>0?S.theta-90:S.theta+90);
@@ -905,22 +903,41 @@ function toggleLock(axis){
 }
 /* 傾き操作の対象：ふだんは針の角度。透視画面を長押ししている間だけC-arm（LAO/RAO）。
    離すと針に戻り、それぞれ今の角度から続けて動く（基準を付け直す） */
-const CLUTCH_MS=300;let clutchTimer=null,clutchUsed=false;
+const CLUTCH_MS=300,DRAG_MOVE_CANCEL=10;
+let clutchTimer=null,clutchUsed=false,clutchOnNow=false,downX=0,downY=0,lastX=0;
+/* 透視画面の長押し（0.3秒）でC-arm操作に入る。
+   ・左右にドラッグするとLAO/RAOが回る（右へ＝LAO、画面幅いっぱいで180°）
+   ・傾き操作がオンなら、回転（ひねり）でも回る
+   離すと終了し、傾き操作は針に戻る */
 function clutchOn(){
-  if(!S.gyro)return;
-  S.gyroMode='carm';rebaseCarm();clutchUsed=true;$('ovClutch').hidden=false;
+  clutchOnNow=true;clutchUsed=true;$('ovClutch').hidden=false;
+  if(S.gyro){S.gyroMode='carm';rebaseCarm();}
   if(navigator.vibrate)try{navigator.vibrate(15);}catch(_){}
 }
 function clutchOff(){
   clearTimeout(clutchTimer);clutchTimer=null;
-  if(S.gyroMode==='carm'){S.gyroMode='needle';if(!S.lockY)rebaseYaw();if(!S.lockP)rebasePitch();}
-  $('ovClutch').hidden=true;
+  if(clutchOnNow&&S.gyroMode==='carm'){S.gyroMode='needle';if(!S.lockY)rebaseYaw();if(!S.lockP)rebasePitch();}
+  clutchOnNow=false;$('ovClutch').hidden=true;
 }
 fCan.addEventListener('pointerdown',e=>{
-  if(S.mode!=='fluoro')return;clutchUsed=false;
+  if(S.mode!=='fluoro')return;clutchUsed=false;downX=lastX=e.clientX;downY=e.clientY;
+  try{fCan.setPointerCapture(e.pointerId);}catch(_){}
   clearTimeout(clutchTimer);clutchTimer=setTimeout(clutchOn,CLUTCH_MS);
 });
-['pointerup','pointercancel','pointerleave'].forEach(t=>fCan.addEventListener(t,clutchOff));
+fCan.addEventListener('pointermove',e=>{
+  if(!clutchOnNow){
+    // 長押しが成立する前に大きく動いたら長押しを取り消す
+    if(clutchTimer&&Math.hypot(e.clientX-downX,e.clientY-downY)>DRAG_MOVE_CANCEL){clearTimeout(clutchTimer);clutchTimer=null;}
+    return;
+  }
+  const w=fCan.getBoundingClientRect().width||1,dx=e.clientX-lastX;
+  if(Math.abs(dx)<1)return;
+  S.dragTheta=(S.dragTheta??S.theta)+dx/w*180;lastX=e.clientX;
+  const t=Math.round(Math.max(-90,Math.min(90,S.dragTheta)));
+  if(t!==S.theta){S.theta=t;syncUI();}
+  if(S.gyro)rebaseCarm();
+});
+['pointerup','pointercancel'].forEach(t=>fCan.addEventListener(t,()=>{S.dragTheta=null;clutchOff();}));
 fCan.addEventListener('contextmenu',e=>e.preventDefault());
 $('cbar').addEventListener('pointerdown',()=>{S.holdCarm=true;});
 ['yaw','pitch'].forEach(id=>$(id).addEventListener('pointerdown',()=>{S.holdNeedle=true;}));
