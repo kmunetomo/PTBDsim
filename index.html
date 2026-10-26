@@ -595,7 +595,7 @@ function placeNeedle(n,h){
   n.visible=h.visible=true;
 }
 function beam(){const d=V(Math.sin(S.theta*DEG),Math.cos(S.theta*DEG),0);return {d,src:ISO.clone().addScaledVector(d,-SOD),det:ISO.clone().addScaledVector(d,SID-SOD)};}
-function angText(t){return t===0?'AP 0°':(t>0?'LAO ':'RAO ')+Math.abs(t)+'°';}
+function angText(t){t=Math.round(t);return t===0?'AP 0°':(t>0?'LAO ':'RAO ')+Math.abs(t)+'°';}
 
 /* 右上の小さな図：正面から見た体表（中身は描かない）と刺入点、足側から見たC-armの向き。
    針の向きや胆管は描かない（答えにならないように） */
@@ -825,7 +825,18 @@ const th=v=>{S.theta=Math.max(-90,Math.min(90,v));syncUI();if(S.gyroMode==='carm
 $('theta').oninput=e=>th(CARM_DIR*e.target.value);
 $('thZero').onclick=()=>th(0);
 /* 直交：今の角度から可動範囲（±90°）に収まる側へ90°回す（APのときはLAO 90°） */
-$('th90').onclick=()=>th(S.theta>0?S.theta-90:S.theta+90);
+/* 90°ボタンは約0.9秒かけて回す（回しながら針と標的の位置関係の変化を見られるように） */
+let carmAnim=null;
+$('th90').onclick=()=>{
+  if(carmAnim)cancelAnimationFrame(carmAnim);
+  const from=S.theta,to=Math.round(from>0?from-90:from+90),t0=performance.now(),dur=900;
+  const step=now=>{
+    const k=Math.min(1,(now-t0)/dur),e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    th(k<1?from+(to-from)*e:to);
+    carmAnim=k<1?requestAnimationFrame(step):null;
+  };
+  carmAnim=requestAnimationFrame(step);
+};
 /* 胆管の太さ：末梢枝（半径0.4 cm＝径8 mm）を基準に全枝を拡縮し、形状を作り直す */
 $('dw').oninput=e=>{
   DUCT_K=+e.target.value/8;$('dwVal').textContent=e.target.value+' mm';
@@ -932,7 +943,7 @@ fCan.addEventListener('pointermove',e=>{
   }
   const w=fCan.getBoundingClientRect().width||1,dx=e.clientX-lastX;
   if(Math.abs(dx)<1)return;
-  S.dragTheta=(S.dragTheta??S.theta)+dx/w*180;lastX=e.clientX;
+  S.dragTheta=(S.dragTheta??S.theta)+dx/w*270;lastX=e.clientX;   // 画面幅いっぱいで270°（中心から端までで135°）
   const t=Math.round(Math.max(-90,Math.min(90,S.dragTheta)));
   if(t!==S.theta){S.theta=t;syncUI();}
   if(S.gyro)rebaseCarm();
