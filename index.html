@@ -34,7 +34,7 @@ body{
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-.app{display:grid;grid-template-columns:68px minmax(0,1fr) clamp(178px,24vw,250px);gap:8px;height:100%}
+.app{display:grid;grid-template-columns:68px minmax(0,1fr) clamp(170px,22vw,240px) 60px;gap:8px;height:100%}
 .maincol{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
 .maincol .viewer{flex:1 1 auto}
 .cbar{display:flex;min-height:0;flex-direction:column;align-items:stretch;gap:5px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 5px}
@@ -181,18 +181,21 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
       <div class="sl sl3"><label for="pitch">頭尾</label><input type="range" id="pitch" min="-60" max="60" step="1" value="0"><button class="btn lk" id="lockP" hidden aria-pressed="false">固定</button></div>
     </div>
     <div class="sec">
-      <label class="sl sl3" for="depth"><span>深さ</span><input type="range" id="depth" min="0" max="15" step="0.1" value="0"><span class="val" id="depVal">0.0 cm</span></label>
-      <div class="grid2">
-        <button class="btn" id="gTgt" aria-pressed="false" aria-label="ガイド線：刺入点からターゲットまで">標的線</button>
-        <button class="btn" id="gExt" aria-pressed="false" aria-label="ガイド線：針の延長線">延長線</button>
-      </div>
       <div class="chip" id="status">刺入点を選んでください</div>
     </div>
-    <div class="grid2 push">
-      <button class="btn primary" id="go3d">3Dで確認</button>
-      <button class="btn" id="reset">針を抜く</button>
-    </div>
+    <button class="btn primary push" id="go3d">3Dで確認</button>
   </aside>
+
+  <!-- 右端：深さ（縦スライダー、上が深い）とガイド線・抜針 -->
+  <div class="cbar" id="dbar" aria-label="針の深さ">
+    <div class="cang" id="depVal">0.0<br>cm</div>
+    <div class="hint" style="text-align:center;font-size:10.5px">深</div>
+    <input type="range" id="depth" min="0" max="15" step="0.1" value="0" aria-label="針の深さ（上が深い）">
+    <div class="hint" style="text-align:center;font-size:10.5px">浅</div>
+    <button class="btn" id="gTgt" aria-pressed="false" aria-label="ガイド線：刺入点からターゲットまで">標的<br>線</button>
+    <button class="btn" id="gExt" aria-pressed="false" aria-label="ガイド線：針の延長線">延長<br>線</button>
+    <button class="btn" id="reset" aria-label="針を抜く">抜針</button>
+  </div>
 </div>
 
 <!-- 設定シート -->
@@ -713,7 +716,7 @@ function syncUI(){
   $('theta').value=CARM_DIR*S.theta;
   $('yaw').value=S.yaw;$('pitch').value=S.pitch;
   $('angVal').textContent='水平 '+S.yaw+'° / 頭尾 '+S.pitch+'°';
-  $('depVal').textContent=S.eff.toFixed(1)+' cm'+(S.blocked?'（止）':'');
+  $('depVal').innerHTML=S.eff.toFixed(1)+'<br>cm'+(S.blocked?'<br>（止）':'');
   const j=judge(),st=$('status');st.className='chip '+j.cls;st.textContent=j.txt;
   updateNudgeLabels();
   renderFluoro();
