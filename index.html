@@ -243,76 +243,34 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 
 <!-- 説明シート（左から） -->
 <aside class="sheet left" id="help" role="dialog" aria-label="説明" hidden>
-  <div class="row between"><h2>PTBD穿刺トレーナーの説明</h2><button class="btn" id="closeHelp" style="flex:0 0 auto">閉じる</button></div>
+  <div class="row between"><h2>説明</h2><button class="btn" id="closeHelp" style="flex:0 0 auto">閉じる</button></div>
+  <p class="hint hb">透視下PTBDで、2Dの透視像から胆管の3Dの位置をつかむ練習です。スマホを横持ちで使います。</p>
   <div class="sec">
-    <div class="lab">このアプリについて</div>
-    <p class="hint hb">X線透視下で肝内胆管を穿刺するときの「2Dの透視像から3Dの位置関係を推測する」感覚を練習するためのシミュレーターです。胆管はすべて拡張し、造影済みで写っています。</p>
-    <p class="hint hb">教育用の試作です。解剖は模式的で正確性は保証しません。臨床判断には使わないでください。</p>
-  </div>
-  <div class="sec">
-    <div class="lab">画面の配置（横持ち）</div>
+    <div class="lab">操作</div>
     <ul class="hl">
-      <li><b>左端</b>：説明、C-armの角度（上がLAO・下がRAO、ボタンは5°刻み、APで正面）</li>
-      <li><b>中央</b>：仮想透視。右上の小さな図は、正面の体表と刺入点、足側から見たC-armの向き</li>
-      <li><b>右パネル</b>：刺入点（右肋間・心窩部、1 cm刻みの微調整）、針の角度（水平・頭尾）、判定、3Dで確認</li>
-      <li><b>右端</b>：設定、針の深さ（上が深い）、標的線・延長線、抜針</li>
+      <li><b>刺入点</b>：右パネルのボタン、または透視をタップ</li>
+      <li><b>針の向き</b>：スマホをひねる（水平）、起こす／寝かせる（頭尾）</li>
+      <li><b>C-arm</b>：透視を長押ししながらひねる。または左端のバー</li>
+      <li><b>深さ</b>：右端のバー（上が深い）</li>
+      <li><b>抜針</b>：深さと向きをリセット</li>
+      <li><b>3Dで確認</b>：答え合わせ</li>
     </ul>
   </div>
   <div class="sec">
-    <div class="lab">基本の流れ</div>
+    <div class="lab">印</div>
+    <ul class="hl">
+      <li><span class="dot" style="background:#26f0ff"></span>刺入点　<span class="dot" style="background:#ff3d7f"></span>針先　<span class="dot" style="background:#f2a93b"></span>ターゲット</li>
+      <li>手元のリングが重なって中心に針先が見えたら、針とX線が一直線（ブルズアイ）</li>
+    </ul>
+  </div>
+  <div class="sec">
+    <div class="lab">コツ：2方向で決める</div>
     <ol class="hl">
-      <li>刺入点を選ぶ（ボタン、または針を抜いた状態で透視画像をタップ）</li>
-      <li>針の角度を決める（スライダー、またはスマホの傾き）</li>
-      <li>C-armを回して、針と胆管の前後関係を確かめる</li>
-      <li>針を進め、判定を見る</li>
-      <li>「3Dで確認」で答え合わせをする</li>
-      <li>「抜針」で深さと角度をリセットしてやり直す</li>
+      <li>刺入点と標的が左右で重なる角度で、<b>水平</b>を合わせる</li>
+      <li>大きく回して（理想は約90°）、<b>頭尾</b>と<b>深さ</b>を合わせる</li>
     </ol>
   </div>
-  <div class="sec">
-    <div class="lab">傾き操作（スマホ）</div>
-    <ul class="hl">
-      <li>スマホでは自動でオンになります（iPhoneは最初のタップで許可）</li>
-      <li><b>ふだん</b>：画面を縦軸まわりにひねると針の水平、画面を起こす／寝かせると頭尾（寝かせると尾側）</li>
-      <li><b>透視画面を長押ししている間だけ</b>：ひねりでC-armが回ります（ひねりの3倍）。離すと針に戻ります</li>
-      <li>水平・頭尾はそれぞれ「固定」できます。スライダーやC-armバーに触れている間は、その対象の傾き操作は止まります</li>
-      <li>ずれてきたら、設定の「姿勢を合わせ直す」で今の姿勢を基準にし直せます</li>
-    </ul>
-  </div>
-  <div class="sec">
-    <div class="lab">画面の印</div>
-    <ul class="hl">
-      <li><span class="dot" style="background:#26f0ff"></span>シアンの点：皮膚の刺入点（刺し始めると表示。角度を変えるとここを支点に回ります）</li>
-      <li><span class="dot" style="background:#ff3d7f"></span>ピンクの点：針先</li>
-      <li>針の手元の2つのリング：X線と針が一直線になると同心円に重なり、中心に針先が点で見えます（ブルズアイ）</li>
-      <li><span class="dot" style="background:#f2a93b"></span>琥珀の円：ターゲット（設定で選択。透視には写らない補助表示）</li>
-      <li>シアンの破線：標的線（刺入点→ターゲット）、白の点線：延長線（針先の先）</li>
-    </ul>
-  </div>
-  <div class="sec">
-    <div class="lab">判定</div>
-    <ul class="hl">
-      <li>針先の位置を「胆管内（枝名）／肝実質内／肝外」で表示します</li>
-      <li>胆管内では、針と中枢側胆管のなす角も表示します（0°＝肝門側へまっすぐ、90°＝直交）</li>
-      <li>肋骨・肋軟骨・胸骨・剣状突起に当たると針は止まります</li>
-    </ul>
-  </div>
-  <div class="sec">
-    <div class="lab">練習のコツ：C-armの角度2つで決める</div>
-    <ol class="hl">
-      <li><b>方向A</b>：刺入点と標的が画面の左右方向で同じ位置に来る角度を探し、針の影が縦の1本の線になるまで<b>水平</b>だけを振る（頭尾に傾いていなければブルズアイになります）</li>
-      <li><b>方向B</b>：Aから大きく（理想は約90°）回し、<b>頭尾</b>だけを動かして針の延長線を標的に合わせ、針先が標的に重なるまで<b>深さ</b>を進める</li>
-    </ol>
-    <p class="hint hb">1方向の透視では針の前後の位置は決まりません。方向Aでは頭尾の正誤は判断できないので、頭尾と深さは必ず方向Bで合わせます。</p>
-  </div>
-  <div class="sec">
-    <div class="lab">見え方について</div>
-    <ul class="hl">
-      <li>管球は背側、検出器は腹側。表示は患者の右が画面の左です</li>
-      <li>管球に近い背側の構造ほど大きく写り、C-armを回すと大きく動きます</li>
-      <li>心臓は前寄りにあるので、前後の目印になります</li>
-    </ul>
-  </div>
+  <p class="hint">教育用の試作です。解剖は模式的で、臨床判断には使わないでください。</p>
 </aside>
 
 <div class="rotate" id="rotate" hidden>
