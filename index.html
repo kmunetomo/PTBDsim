@@ -186,7 +186,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
       </div>
     </div>
     <div class="sec">
-      <div class="row between"><span class="lab">針の角度</span><span class="val" id="angVal">水平 0° / 頭尾 0°</span></div>
+      <div class="row between"><span class="lab">針の角度</span><span class="val" id="angVal">水平 0° / 頭尾 0°</span><button class="btn lk" id="angZero" aria-label="針の角度を0°に戻し、今の姿勢を基準にする">0°</button></div>
       <div class="sl sl3"><label for="yaw">水平</label><input type="range" id="yaw" min="-60" max="60" step="1" value="0"><button class="btn lk" id="lockY" hidden aria-pressed="false">固定</button></div>
       <div class="sl sl3"><label for="pitch">頭尾</label><input type="range" id="pitch" min="-60" max="60" step="1" value="0"><button class="btn lk" id="lockP" hidden aria-pressed="false">固定</button></div>
     </div>
@@ -232,7 +232,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが出ます。透視画面を長押ししている間だけ、ひねりでC-armが回ります（ひねりの3倍、30°ひねるとLAO/RAO 90°）。離すと針の操作に戻ります。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。スマホでは自動でオンになります（iPhoneは最初のタップで許可を求めます）。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが出ます。スマホの姿勢がずれてきたら、右パネルの「0°」で角度を0°に戻し、今の姿勢を基準にし直せます（抜針した状態のみ）。透視画面を長押ししている間だけ、ひねりでC-armが回ります（ひねりの3倍、30°ひねるとLAO/RAO 90°）。離すと針の操作に戻ります。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。スマホでは自動でオンになります（iPhoneは最初のタップで許可を求めます）。HTTPSのページを直接開いたときのみ動作します。</p>
   </div>
   <div class="sec">
     <div class="lab">症例</div>
@@ -938,13 +938,19 @@ async function startGyro(auto){
     setTimeout(()=>{
       gyroStarting=false;
       if(!gotEvent){window.removeEventListener('deviceorientation',onOri);if(!auto)toast('この表示では傾きセンサーが使えません。スライダーで操作してください');return;}
-      S.gyro=true;$('gyroBtn').textContent='姿勢を合わせ直す';$('lockY').hidden=false;$('lockP').hidden=false;
+      S.gyro=true;$('gyroBtn').textContent='傾き操作：オン';$('gyroBtn').disabled=true;$('lockY').hidden=false;$('lockP').hidden=false;
       if(auto)toast('傾き操作をオンにしました（設定から合わせ直せます）');
     },1500);
   }catch(_){gyroStarting=false;toast('傾きセンサーの利用が許可されませんでした。スライダーで操作してください');}
 }
+/* 針の角度を0°に戻し、傾き操作中は今のスマホの姿勢を新しい基準にする（刺さっている間は不可） */
+$('angZero').onclick=()=>{
+  if(!S.entry){toast('先に刺入点を選んでください');return;}
+  if(S.depth>0){toast('抜針してから角度をリセットしてください');return;}
+  S.yaw=0;S.pitch=0;base=null;syncUI();
+};
 $('gyroBtn').onclick=()=>{
-  if(S.gyro){base=null;toast('今の姿勢を基準に合わせ直しました');return;}
+  if(S.gyro)return;
   startGyro(false);
 };
 /* スマホ・タブレット（指で操作する端末）では傾き操作を自動でオンにする。
