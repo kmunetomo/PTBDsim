@@ -122,7 +122,6 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     <button class="btn" id="thMinus" aria-label="5度RAO側へ">RAO<br>5°</button>
     <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
     <button class="btn" id="gyroMode" hidden aria-label="傾き操作の対象を切り替え">傾き:針</button>
-    <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
   </div>
   <!-- 中央：透視 / 3D -->
   <div class="maincol">
@@ -188,6 +187,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 
   <!-- 右端：深さ（縦スライダー、上が深い）とガイド線・抜針 -->
   <div class="cbar" id="dbar" aria-label="針の深さ">
+    <button class="btn" id="openSet" aria-haspopup="dialog">設定</button>
     <div class="cang" id="depVal">0.0<br>cm</div>
     <div class="hint" style="text-align:center;font-size:10.5px">深</div>
     <input type="range" id="depth" min="0" max="15" step="0.1" value="0" aria-label="針の深さ（上が深い）">
