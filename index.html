@@ -355,12 +355,16 @@ function sternumMeshes(matSt,matXi){
   xi.rotation.x=Math.PI/2;xi.scale.set(1.45,1,0.5);xi.position.copy(STERNUM[1].c);
   return [st,xi];
 }
+/* 当たり判定の甘さ：見た目の太さに対する割合。肋骨は帯の中心部65%、肋軟骨は中心部50%だけで判定し、ふちをかすめるのは通す */
+const HIT_RIB=0.65,HIT_CART=0.5;
 const CARTS=[];
 [12.5,9,5.5,2,-1.5,-3.5].forEach((zs,i)=>{
   [0,1].forEach(j=>{
     const e=RIBS[i*2+j].curve.getPoint(1),s=Math.sign(e.x),m=V(s*(i<4?1.5:0.9),STERN_Y,zs);
     const mid=V((e.x+m.x)/2,(e.y+m.y)/2+0.6,(e.z+m.z)/2-(i<4?0.6:0));
-    const curve=new THREE.CatmullRomCurve3([e,mid,m]);CARTS.push({curve,samples:curve.getSpacedPoints(30),r:.5});
+    const curve=new THREE.CatmullRomCurve3([e,mid,m]),samples=curve.getSpacedPoints(30),lo=samples[0].clone(),hi=samples[0].clone();
+    samples.forEach(q=>{lo.min(q);hi.max(q);});
+    CARTS.push({curve,samples,r:.5,box:{lo:lo.subScalar(.5*HIT_CART),hi:hi.addScalar(.5*HIT_CART)}});
   });
 });
 
@@ -379,11 +383,25 @@ function inLiver(p){
   return ((p.y-q.yc)/(q.yh*f))**2+((p.z-q.zc)/(q.zh*f))**2<=1;
 }
 function inBody(p){return (p.x/BODY.a)**2+(p.y/BODY.b)**2<=1;}
-/* 当たり判定の甘さ：見た目の太さに対する割合。肋骨は帯の中心部65%、肋軟骨は中心部50%だけで判定し、ふちをかすめるのは通す */
-const HIT_RIB=0.65,HIT_CART=0.5;
+/* 当たり判定の高速化：サンプル点を10点ずつの塊に分け、塊の外接箱（判定距離ぶん広げる）に入らない塊は調べない。
+   箱の外の点は判定距離より遠いので、結果は全点を調べた場合と同じ */
+const CHUNK=10;
+function chunkBoxes(s,pad){
+  const out=[];
+  for(let i0=0;i0<s.length;i0+=CHUNK){
+    const i1=Math.min(i0+CHUNK,s.length),lo=s[i0].clone(),hi=s[i0].clone();
+    for(let i=i0+1;i<i1;i++){lo.min(s[i]);hi.max(s[i]);}
+    out.push({i0,i1,lo:lo.subScalar(pad),hi:hi.addScalar(pad)});
+  }
+  return out;
+}
+const inAABB=(p,lo,hi)=>p.x>=lo.x&&p.x<=hi.x&&p.y>=lo.y&&p.y<=hi.y&&p.z>=lo.z&&p.z<=hi.z;
+RIBS.forEach(r=>{r.boxes=chunkBoxes(r.samples,2);r.lo=r.boxes[0].lo.clone();r.hi=r.boxes[0].hi.clone();r.boxes.forEach(b=>{r.lo.min(b.lo);r.hi.max(b.hi);});});   // 肋骨は中心線から2 cm以内だけを調べる（下のm>4）
 function hitsRib(p){
   return RIBS.some(r=>{
-    const s=r.samples;let m=1e9,mi=0;for(let i=0;i<s.length;i++){const d=p.distanceToSquared(s[i]);if(d<m){m=d;mi=i;}}
+    if(!inAABB(p,r.lo,r.hi))return false;
+    const s=r.samples;let m=1e9,mi=0;
+    for(const b of r.boxes){if(!inAABB(p,b.lo,b.hi))continue;for(let i=b.i0;i<b.i1;i++){const d=p.distanceToSquared(s[i]);if(d<m){m=d;mi=i;}}}
     if(m>4)return false;
     const f=ribTaper(mi/(s.length-1)),o=p.clone().sub(s[mi]),a=s[Math.min(mi+1,s.length-1)].clone().sub(s[Math.max(mi-1,0)]).normalize();
     o.addScaledVector(a,-o.dot(a));   // 断面内の成分だけにする
@@ -396,7 +414,7 @@ function inBox(p,b){return Math.abs(p.x-b.c.x)<=b.s.x/2+.08&&Math.abs(p.y-b.c.y)
 function hitWhat(p){
   if(hitsRib(p))return '肋骨';
   {const b=STERNUM.find(b=>inBox(p,b));if(b)return b.name;}
-  if(CARTS.some(c=>polyDist(p,c.samples)<c.r*HIT_CART))return '肋軟骨';
+  if(CARTS.some(c=>inAABB(p,c.box.lo,c.box.hi)&&polyDist(p,c.samples)<c.r*HIT_CART))return '肋軟骨';
   return null;
 }
 function surfaceNormal(p){return V(p.x/BODY.a**2,p.y/BODY.b**2,0).normalize();}
