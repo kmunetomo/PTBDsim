@@ -36,7 +36,7 @@ body{
 body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .viewer canvas{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 [hidden]{display:none!important}
-.app{display:grid;grid-template-columns:68px minmax(0,1fr) clamp(170px,22vw,240px) 60px;gap:8px;height:100%}
+.app{display:grid;grid-template-columns:minmax(0,1fr) clamp(170px,22vw,240px) 60px;gap:8px;height:100%}
 .maincol{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
 .maincol .viewer{flex:1 1 auto}
 .cbar{display:flex;min-height:0;flex-direction:column;align-items:stretch;gap:5px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 5px}
@@ -61,6 +61,7 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .btn:disabled{opacity:.45;cursor:default}
 .push{margin-top:auto;flex:0 0 auto}
+.panel>.grid2.push{grid-template-columns:auto 1fr}
 .panel>.btn{flex:0 0 auto}
 input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 .hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin:0}
@@ -124,16 +125,6 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
 </style>
 
 <div class="app" id="app">
-  <!-- 左端：C-arm（縦スライダー、上がLAO） -->
-  <div class="cbar" id="cbar" aria-label="C-armの角度">
-    <button class="btn" id="openHelp" aria-haspopup="dialog">説明</button>
-    <div class="cang" id="angBig">AP 0°</div>
-    <div class="hint" style="text-align:center;font-size:10.5px">LAO</div>
-    <input type="range" id="theta" min="-90" max="90" step="1" value="0" aria-label="C-armの角度（上がLAO、下がRAO）">
-    <div class="hint" style="text-align:center;font-size:10.5px">RAO</div>
-    <button class="btn" id="thZero" aria-label="正面（AP）に戻す">AP</button>
-    <button class="btn" id="th90" aria-label="今の角度から90°回す">90°</button>
-  </div>
   <!-- 中央：透視 / 3D -->
   <div class="maincol">
   <main class="viewer" id="viewer">
@@ -172,18 +163,13 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   </main>
   </div>
 
-  <!-- 右：針 -->
-  <aside class="panel" aria-label="針の操作">
+  <!-- 右：C-armと針 -->
+  <aside class="panel" aria-label="C-armと針の操作">
     <div class="sec">
+      <div class="row between"><span class="lab">C-arm</span><span class="val" id="angBig">AP 0°</span></div>
       <div class="grid2">
-        <button class="btn" id="preR">右肋間</button>
-        <button class="btn" id="preE">心窩部</button>
-      </div>
-      <div class="grid2">
-        <button class="btn" id="nzU" aria-label="刺入点を1 cm頭側へ">頭側</button>
-        <button class="btn" id="nzD" aria-label="刺入点を1 cm尾側へ">尾側</button>
-        <button class="btn" id="nsA">—</button>
-        <button class="btn" id="nsB">—</button>
+        <button class="btn" id="thZero" aria-label="正面（AP、頭尾0°）に戻す">AP</button>
+        <button class="btn" id="th90" aria-label="LAO/RAOを今の角度から90°回す">90°</button>
       </div>
     </div>
     <div class="sec">
@@ -192,9 +178,13 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
       <div class="sl sl3"><label for="pitch">頭尾</label><input type="range" id="pitch" min="-60" max="60" step="1" value="0"><button class="btn lk" id="lockP" hidden aria-pressed="false">固定</button></div>
     </div>
     <div class="sec">
-      <div class="chip" id="status">刺入点を選んでください</div>
+      <div class="chip" id="status">透視をタップして刺入点を選択</div>
     </div>
-    <button class="btn primary push" id="go3d">3Dで確認</button>
+    <button class="btn" id="breath" hidden aria-pressed="false">息止め</button>
+    <div class="grid2 push">
+      <button class="btn" id="openHelp" aria-haspopup="dialog">説明</button>
+      <button class="btn primary" id="go3d">3Dで確認</button>
+    </div>
   </aside>
 
   <!-- 右端：深さ（縦スライダー、上が深い）とガイド線・抜針 -->
@@ -228,12 +218,19 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
     </select>
     <div class="row between"><label class="hint" for="tgtSize">直径</label><span class="val" id="tgtVal">7 mm</span></div>
     <input type="range" id="tgtSize" min="5" max="30" step="1" value="7">
-    <p class="hint">琥珀色の円は透視には写らない補助表示です。刺入点のボタンを押すと推奨の枝に切り替わります（右肋間→B6、心窩部→B3）。</p>
+    <p class="hint">琥珀色の円は透視には写らない補助表示です。刺入する側に合わせて枝を選んでください（例：右肋間→B6、心窩部→B3）。</p>
   </div>
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが出ます。スマホの姿勢がずれてきたら、右パネルの「0°」で角度を0°に戻し、今の姿勢を基準にし直せます（抜針した状態のみ）。透視画面を長押ししている間だけ、ひねりでC-armが回ります（ひねりの3倍、30°ひねるとLAO/RAO 90°）。離すと針の操作に戻ります。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。スマホでは自動でオンになります（iPhoneは最初のタップで許可を求めます）。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが出ます。スマホの姿勢がずれてきたら、右パネルの「0°」で角度を0°に戻し、今の姿勢を基準にし直せます（抜針した状態のみ）。透視画面を長押ししている間だけ、ひねりでC-armが回り（ひねりの3倍、30°ひねるとLAO/RAO 90°）、起こす／寝かせるでCRA/CAUが傾きます（寝かせるとCAU）。離すと針の操作に戻ります。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。スマホでは自動でオンになります（iPhoneは最初のタップで許可を求めます）。HTTPSのページを直接開いたときのみ動作します。</p>
+  </div>
+  <div class="sec">
+    <div class="lab">呼吸性移動（Advanced）</div>
+    <button class="btn" id="respBtn" aria-pressed="false">呼吸：オフ</button>
+    <div class="row between"><label class="hint" for="respAmp">振れ幅（頭尾）</label><span class="val" id="respVal">1.5 cm</span></div>
+    <input type="range" id="respAmp" min="0.5" max="3" step="0.1" value="1.5">
+    <p class="hint">肝・胆管（3Dでは門脈・肝動脈も）が頭尾に動きます（12回/分：吸気1.5秒・呼気1.5秒・呼気終末で2秒止まる）。骨は動きません。針先が肝内にあると、針は皮膚の刺入点を支点に肝と一緒に傾きます。右パネルの「息止め」で止まり、止めるたびに位置が少しずつ変わります。</p>
   </div>
   <div class="sec">
     <div class="lab">症例</div>
@@ -249,11 +246,13 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">操作</div>
     <ul class="hl">
-      <li><b>刺入点</b>：右パネルのボタン、または透視をタップ</li>
+      <li><b>刺入点</b>：透視をタップ（体の側面はRAO 90°にしてタップ）</li>
       <li><b>針の向き</b>：スマホを回転させる（水平）、起こす／寝かせる（頭尾）</li>
-      <li><b>C-arm</b>：透視を長押しして左右にドラッグ、または長押ししたままスマホを回転。左端のバーでも可（90°で直交する角度へ）</li>
+      <li><b>C-arm</b>：透視を長押しして、左右にドラッグでLAO/RAO、上下でCRA/CAU（±20°）。長押ししたままスマホを回転・起こす／寝かせるでも可。右パネルの「90°」で直交する角度へ、「AP」で正面へ</li>
       <li><b>穿刺</b>：右端のバー（上で刺入）</li>
+      <li><b>刺入後の向き</b>：深さ2 cmまでは自由、それより深いと±5°まで。肝内では肝内の針の長さで1 cm未満±5°、1〜3 cm±3°、3 cm以上は固定（引けば動かせる）</li>
       <li><b>抜針</b>：深さと向きをリセット</li>
+      <li><b>呼吸</b>（設定でオン）：肝と胆管が上下し、肝内の針も傾く。右パネルの「息止め」で止める</li>
       <li><b>3Dで確認</b>：答え合わせ</li>
     </ul>
   </div>
@@ -376,8 +375,20 @@ function segDist(p,a,b){
 function polyDist(p,s){let m=1e9;for(let i=0;i<s.length-1;i++){const d=segDist(p,s[i],s[i+1]);if(d<m)m=d;}return m;}
 let DUCT_K=6/8;   // 初期値：末梢枝6 mm
 const DUCT_MESHES=[];
-function nearestDuct(p){let best=null;DUCTS.forEach(d=>{const dd=polyDist(p,d.samples),r=d.r*DUCT_K;if(!best||dd-r<best.gap)best={duct:d,dist:dd,gap:dd-r};});return best;}
+/* 呼吸性移動（Advanced）：肝・胆管・門脈・肝動脈・ターゲットを頭尾方向にdz（cm）だけずらす。骨・体・心臓は動かさない。
+   s＝0が呼気終末（最も頭側）、1が吸気終末（amp cmだけ尾側）。判定は点を臓器の座標（dzを戻した位置）に直して行う */
+const RESP={on:false,amp:1.5,tc:0,s:0,dz:0,hold:false,holdS:0};
+/* 呼吸の1周期：吸気→呼気→呼気終末の休止。安静時の成人の呼吸数（12〜20回/分）の下限に合わせ、12回/分＝5秒周期 */
+const RESP_TI=1.5,RESP_TE=1.5,RESP_TP=2.0;   // 吸気・呼気・呼気終末の休止（秒）
+function respShape(tc){   // 周期内の時刻 → s（0＝呼気終末、1＝吸気終末）
+  if(tc<RESP_TI)return (1-Math.cos(Math.PI*tc/RESP_TI))/2;
+  if(tc<RESP_TI+RESP_TE)return (1+Math.cos(Math.PI*(tc-RESP_TI)/RESP_TE))/2;
+  return 0;
+}
+const toOrg=p=>V(p.x,p.y,p.z-RESP.dz);
+function nearestDuct(p){p=toOrg(p);let best=null;DUCTS.forEach(d=>{const dd=polyDist(p,d.samples),r=d.r*DUCT_K;if(!best||dd-r<best.gap)best={duct:d,dist:dd,gap:dd-r};});return best;}
 function inLiver(p){
+  p=toOrg(p);
   if(p.x<LIV.X[0]||p.x>LIV.X.at(-1))return false;
   const q=livProf(p.x),f=livRound(p.x);if(f<=0)return false;
   return ((p.y-q.yc)/(q.yh*f))**2+((p.z-q.zc)/(q.zh*f))**2<=1;
@@ -420,28 +431,80 @@ function hitWhat(p){
 function surfaceNormal(p){return V(p.x/BODY.a**2,p.y/BODY.b**2,0).normalize();}
 
 /* ===== 状態 ===== */
-const S={theta:0,entry:null,normal:null,yaw:0,pitch:0,depth:0,eff:0,blocked:false,mode:'fluoro',gyro:false,tgt:'B3',tgtD:7,gyroMode:'needle',gTgt:false,gExt:false};
+const S={theta:0,phi:0,entry:null,normal:null,yaw:0,pitch:0,depth:0,eff:0,blocked:false,mode:'fluoro',gyro:false,tgt:'B3',tgtD:7,gyroMode:'needle',gTgt:false,gExt:false};
 /* ターゲット：指定した枝の末梢寄り（曲線の75%地点）に置く球 */
 function target(){
   if(!S.tgt)return null;
   const d=DUCTS.find(x=>x.id===S.tgt);
-  return {c:d.curve.getPointAt(0.75),r:S.tgtD/20};
+  const c=d.curve.getPointAt(0.75);c.z+=RESP.dz;
+  return {c,r:S.tgtD/20};
 }
 
-function needleDir(){
+/* 操作で決めた針の向き（水平・頭尾） */
+function userDir(){
   const b=S.normal.clone().negate(), c=Math.cos(S.yaw*DEG), s=Math.sin(S.yaw*DEG);
   const h=V(b.x*c-b.y*s,b.x*s+b.y*c,0).normalize();
   return h.multiplyScalar(Math.cos(S.pitch*DEG)).add(V(0,0,Math.sin(S.pitch*DEG))).normalize();
 }
+/* 針先が肝に入ると、針は肝に捕まる（S.anchor）。呼吸で肝がΔだけ頭尾に動くと、肝内の針（被膜a〜針先b cm）も
+   一緒に動こうとするので、皮膚の刺入点を支点に、その区間の動きに最もよく合う向き（最小二乗）へ傾く。
+   これは刺入点から s*=(2/3)(b³-a³)/(b²-a²) の点をΔ動かした向きと同じ（被膜が皮膚のすぐ下でも傾きすぎない） */
+function needleDir(){
+  if(!S.anchor)return userDir();
+  const a=S.anchor.a,b=Math.max(S.depth,a+0.1),sx=2/3*(b**3-a**3)/(b*b-a*a);
+  return userDir().multiplyScalar(sx).add(V(0,0,RESP.dz-S.anchor.dz)).normalize();
+}
+/* 実際の針の向きを水平・頭尾の角度に直す（表示用。呼吸で傾いた分も含む） */
+function dirAngles(d){
+  const b=S.normal.clone().negate(),h=V(d.x,d.y,0).normalize();
+  return {yaw:Math.round(Math.atan2(b.x*h.y-b.y*h.x,b.x*h.x+b.y*h.y)/DEG),pitch:Math.round(Math.asin(Math.max(-1,Math.min(1,d.z)))/DEG)};
+}
 function computeDepth(){
   S.blocked=false;S.blockedBy='';S.eff=S.depth;
-  if(!S.entry)return;
+  if(!S.entry){S.anchor=null;return;}
+  if(S.anchor&&S.depth<S.anchor.a)releaseAnchor();   // 被膜の手前まで引いたら肝から外れる
   const d=needleDir();
   for(let t=0.1;t<=S.depth+1e-6;t+=0.1){
     const p=S.entry.clone().addScaledVector(d,t);
-    const h=inBody(p)&&hitWhat(p);if(h){S.eff=Math.max(0,t-0.1);S.blocked=true;S.blockedBy=h;return;}
+    const h=inBody(p)&&hitWhat(p);if(h){S.eff=Math.max(0,t-0.1);S.blocked=true;S.blockedBy=h;break;}
+    if(!S.anchor&&inLiver(p))S.anchor={a:t,dz:RESP.dz};
   }
+  if(S.anchor&&S.eff<S.anchor.a-0.1)releaseAnchor();   // 呼吸で傾いて骨に当たり、被膜まで届かなくなった場合
 }
+function releaseAnchor(){S.anchor=null;rebaseNeedle();}
+/* 刺入後の角度制約（段階的）。各段階に入った時点の角度を中心に±tol°まで。複数の段階が重なるときは全部の範囲を満たす
+   ・深さANG_FREE cmまでは自由（皮下で向きを直せる）
+   ・それより深いと±ANG_TOL°
+   ・針先が肝に入ったら、肝内の針の長さ（被膜〜針先）でLIVER_TOLの段階に従う（最後は固定）
+   引き戻して段階を抜けると、その段階の制約は外れる。進めるだけでは角度は変わらない */
+const ANG_FREE=2,ANG_TOL=5;
+const LIVER_TOL=[{from:0,tol:5},{from:1,tol:3},{from:3,tol:0}];   // 肝内の長さ（cm）ごとの許容角度（±°）
+S.limRef={};
+function applyAngleLimit(){
+  if(!S.entry){S.angApplied=null;return;}
+  if(S.anchor&&S.depth<S.anchor.a)releaseAnchor();   // 抜針・引き戻しを角度の判定より先に反映
+  const act={};
+  if(S.depth>ANG_FREE)act.sub=ANG_TOL;
+  if(S.anchor)LIVER_TOL.forEach((st,i)=>{if(S.depth-S.anchor.a>=st.from)act['liv'+i]=st.tol;});
+  let freed=false;
+  Object.keys(S.limRef).forEach(k=>{if(!(k in act)){delete S.limRef[k];freed=true;}});
+  if(freed)rebaseNeedle();
+  // 新しい段階の中心は、今回の入力で動かす前（前回確定した）の角度にする
+  const prev=S.angApplied||{yaw:S.yaw,pitch:S.pitch};
+  let y=S.yaw,p=S.pitch,minTol=1e9;
+  for(const k in act){
+    const r=S.limRef[k]||(S.limRef[k]={yaw:prev.yaw,pitch:prev.pitch}),t=act[k];minTol=Math.min(minTol,t);
+    y=Math.max(r.yaw-t,Math.min(r.yaw+t,y));p=Math.max(r.pitch-t,Math.min(r.pitch+t,p));
+  }
+  if(y!==S.yaw||p!==S.pitch){
+    S.yaw=y;S.pitch=p;
+    limitNote(minTol===0?'この深さでは針の向きを変えられません（引くと変えられます）':(S.anchor?'肝内':'刺入中')+'は向きを±'+minTol+'°までしか変えられません');
+  }
+  S.angApplied={yaw:S.yaw,pitch:S.pitch};
+}
+function limitNote(m){const t=$('toast');if(t.hidden||t.textContent!==m)toast(m);}
+/* 制約が外れたとき、傾き操作の基準を今の角度に付け直す（スマホの姿勢との差で角度が飛ばないように） */
+function rebaseNeedle(){if(S.gyro&&S.gyroMode==='needle'){if(!S.lockY)rebaseYaw();if(!S.lockP)rebasePitch();}}
 function tip(){return S.entry.clone().addScaledVector(needleDir(),S.eff);}
 
 /* ===== 透視レンダリング（乗算合成で減弱を表現） ===== */
@@ -495,9 +558,11 @@ G.needle=new THREE.CylinderGeometry(0.06,0.06,NEEDLE_LEN,8);
 G.hub=new THREE.CylinderGeometry(0.45,0.45,1.6,16);
 
 function placeBody(m){m.rotation.x=Math.PI/2;m.scale.set(BODY.a,1,BODY.b);m.position.set(0,0,(BODY.z0+BODY.z1)/2);}
+/* 呼吸で動く臓器（肝・胆管）はグループにまとめて返す。グループのzをRESP.dzにする */
 function addAnatomy(scene,mat){
+  const mov=new THREE.Group();scene.add(mov);
   const body=new THREE.Mesh(mat.longBody?G.bodyLong:G.body,mat.body);placeBody(body);if(mat.longBody)body.position.z=0;scene.add(body);
-  scene.add(new THREE.Mesh(G.liver,mat.liver));
+  mov.add(new THREE.Mesh(G.liver,mat.liver));
   {const h=new THREE.Mesh(G.sphere,mat.heart);h.position.copy(HEART.c);h.scale.copy(HEART.r);h.rotation.copy(HEART.rot);scene.add(h);}
   G.ribs.forEach(g=>scene.add(new THREE.Mesh(g,mat.rib||mat.bone)));
   SPINE.forEach(z=>{
@@ -508,7 +573,8 @@ function addAnatomy(scene,mat){
       const tp=new THREE.Mesh(G.tproc,mat.post||mat.spine||mat.bone);tp.rotation.z=Math.PI/2;tp.scale.set(1,1,0.8);tp.position.set(sd*3.0,-9.5,z+0.4);scene.add(tp);
     });
   });
-  G.ducts.forEach(g=>{const m=new THREE.Mesh(g,mat.duct);scene.add(m);DUCT_MESHES.push(m);});
+  G.ducts.forEach(g=>{const m=new THREE.Mesh(g,mat.duct);mov.add(m);DUCT_MESHES.push(m);});
+  return mov;
 }
 /* 骨の写り方（管球は背側、検出器は腹側）
    ・吸収の強さは深さによらない。通過する骨の厚みに比例させる（断面の中心は濃く、ふちは淡い）
@@ -523,7 +589,7 @@ function boneMaterial(along){
       'float depth=clamp((vW.y+9.0)/18.0,0.0,1.0);'+          // 0=背側 1=腹側
       'float edge=mix(0.62,0.22,depth);'+                     // 背側ほどふちのぼけ幅が広い
       'float th=smoothstep(0.0,edge,c);'+
-      'float an=mix(1.0,mix(1.0,0.12,smoothstep(0.35,0.9,vUv.x)),along);'+  // 肋骨は腹側に向かって急に淡く（腹側はほぼ見えない）
+      'float an=mix(1.0,mix(1.0,0.45,smoothstep(0.6,1.0,vUv.x)),along);'+  // 肋骨は側胸部まではそのまま、腹側端（肋軟骨移行部）に向かって半分ほどに淡く
       'float v=1.0-strength*th*an;gl_FragColor=vec4(v,v,v,1.0);}'});
 }
 /* 軟部組織（肝・心臓）：通過する厚みに比例して淡く写す。ふちはなだらかに */
@@ -535,7 +601,7 @@ function softMaterial(strength){
   return m;
 }
 const fMat={longBody:true,body:softMaterial(.09),liver:softMaterial(.11),heart:softMaterial(.32),spine:boneMaterial(false),post:(()=>{const m=boneMaterial(false);m.uniforms.strength.value=.11;return m;})(),rib:(()=>{const m=boneMaterial(true);m.uniforms.strength.value=.13;return m;})(),duct:xr(.42)};
-addAnatomy(fScene,fMat);
+const fMov=addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
 {const ms=boneMaterial(false),mx=boneMaterial(false);ms.uniforms.strength.value=.07;mx.uniforms.strength.value=.04;sternumMeshes(ms,mx).forEach(m=>fScene.add(m));}
 const fNeedle=new THREE.Mesh(G.needle,xr(.18));
@@ -599,8 +665,17 @@ function placeNeedle(n,h){
   h.position.copy(t.clone().addScaledVector(d,-NEEDLE_LEN-0.8));
   n.visible=h.visible=true;
 }
-function beam(){const d=V(Math.sin(S.theta*DEG),Math.cos(S.theta*DEG),0);return {d,src:ISO.clone().addScaledVector(d,-SOD),det:ISO.clone().addScaledVector(d,SID-SOD)};}
-function angText(t){t=Math.round(t);return t===0?'AP 0°':(t>0?'LAO ':'RAO ')+Math.abs(t)+'°';}
+/* X線の向き：LAO/RAO（θ、体軸まわり）にCRA/CAU（φ、+＝CRA＝検出器が頭側）を重ねる */
+function beam(){
+  const t=S.theta*DEG,f=S.phi*DEG,d=V(Math.sin(t)*Math.cos(f),Math.cos(t)*Math.cos(f),Math.sin(f));
+  return {d,src:ISO.clone().addScaledVector(d,-SOD),det:ISO.clone().addScaledVector(d,SID-SOD)};
+}
+/* 角度の表示：['LAO 20°','CRA 10°']（頭尾0°なら1つ目だけ） */
+function angParts(){
+  const t=Math.round(S.theta),f=Math.round(S.phi),a=[t===0?'AP 0°':(t>0?'LAO ':'RAO ')+Math.abs(t)+'°'];
+  if(f)a.push((f>0?'CRA ':'CAU ')+Math.abs(f)+'°');
+  return a;
+}
 
 /* 右上の小さな図：正面から見た体表（中身は描かない）と刺入点、足側から見たC-armの向き。
    針の向きや胆管は描かない（答えにならないように） */
@@ -650,6 +725,7 @@ function renderFluoro(){
     m.visible=!!tg;
     if(tg){m.position.copy(tg.c);m.scale.setScalar(tg.r);m.quaternion.copy(fCam.quaternion);}
   });
+  fMov.position.z=RESP.dz;
   placeGuides(fGT,fGE);
   fr.render(fScene,fCam);
   drawPic();
@@ -658,12 +734,12 @@ function renderFluoro(){
   const dR=right.dot(V(-1,0,0)), dA=right.dot(V(0,1,0));
   let lab='R',dot=dR; if(Math.abs(dR)<0.5){lab='A';dot=dA;}
   $('ovL').textContent=dot<0?lab:''; $('ovR').textContent=dot>0?lab:'';
-  $('ovTR').textContent=angText(S.theta);
+  $('ovTR').textContent=angParts().join(' / ');
   $('ovBL').textContent='深さ '+S.eff.toFixed(1)+' cm';
 }
 
 /* ===== 3D答え合わせ ===== */
-let tr=null,tScene,tCam,tCtl,tNeedle,tHub,tTip,tBeam,tTgt,tGT,tGE;
+let tr=null,tScene,tCam,tCtl,tMov,tNeedle,tHub,tTip,tBeam,tTgt,tGT,tGE;
 function init3D(){
   const can=$('three');
   tr=new THREE.WebGLRenderer({canvas:can,antialias:true});
@@ -680,13 +756,13 @@ function init3D(){
   const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(30,50,60);tScene.add(dl);
   const L=(c,o)=>new THREE.MeshLambertMaterial({color:c,transparent:o<1,opacity:o,depthWrite:o>=0.5,side:THREE.DoubleSide});
   const bodyMat=new THREE.MeshBasicMaterial({color:0x8aa0a6,transparent:true,opacity:.05,depthWrite:false,side:THREE.DoubleSide});
-  addAnatomy(root,{body:bodyMat,liver:L(0xb9744f,.16),heart:L(0xb8484f,.22),bone:L(0xddd6c6,.55),duct:L(0x4cc38a,1)});
+  tMov=addAnatomy(root,{body:bodyMat,liver:L(0xb9744f,.16),heart:L(0xb8484f,.22),bone:L(0xddd6c6,.55),duct:L(0x4cc38a,1)});
   /* 胸骨・剣状突起と肋軟骨（肋軟骨は3Dのみ。透視には写さない） */
   sternumMeshes(L(0xddd6c6,.55),L(0xcfd8d4,.55)).forEach(m=>root.add(m));
   const cart=L(0x9fb4bd,.55);
   CARTS.forEach(c=>root.add(new THREE.Mesh(tube(c.curve,c.r,24),cart)));
-  PV.forEach(p=>root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0x7a8ce0,1))));
-  HA.forEach(p=>root.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0xe3573f,1))));
+  PV.forEach(p=>tMov.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0x7a8ce0,1))));
+  HA.forEach(p=>tMov.add(new THREE.Mesh(tube(new THREE.CatmullRomCurve3(p.pts),p.r),L(0xe3573f,1))));
   tNeedle=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,NEEDLE_LEN,10),L(0xf2f2ee,1));
   tHub=new THREE.Mesh(G.hub,L(0x9aa4a8,1));
   tTip=new THREE.Mesh(new THREE.SphereGeometry(0.32,20,14),new THREE.MeshBasicMaterial({color:0xf2d33b,side:THREE.DoubleSide}));
@@ -714,6 +790,7 @@ function update3D(){
   if(S.entry){tTip.position.copy(tip());tTip.visible=true;}else tTip.visible=false;
   const b=beam();tBeam.geometry.setFromPoints([b.src,b.det]);
   const tg=target();tTgt.visible=!!tg;if(tg){tTgt.position.copy(tg.c);tTgt.scale.setScalar(tg.r);}
+  tMov.position.z=RESP.dz;
   placeGuides(tGT,tGE);
 }
 
@@ -721,12 +798,13 @@ function update3D(){
 /* 針と「中枢側へ向かう胆管」のなす角。各枝はpts[0]が下流側（肝門側、総胆管は乳頭側）
    0°＝針が下流へまっすぐ向く、90°＝胆管に直交、90°超＝末梢向き */
 function centralAngle(d,p){
+  p=toOrg(p);
   let bi=0,bd=1e9;for(let i=0;i<d.samples.length-1;i++){const x=segDist(p,d.samples[i],d.samples[i+1]);if(x<bd){bd=x;bi=i;}}
   const down=d.samples[bi].clone().sub(d.samples[bi+1]).normalize();
   return Math.round(Math.acos(Math.max(-1,Math.min(1,needleDir().dot(down))))/DEG);
 }
 function judge(){
-  if(!S.entry)return {cls:'',txt:'刺入点を選んでください'};
+  if(!S.entry)return {cls:'',txt:'透視をタップして刺入点を選択'};
   if(S.blocked)return {cls:'warn',txt:S.blockedBy+'に当たっています'};
   if(S.eff<=0)return {cls:'',txt:'体表（未刺入）'};
   const t=tip(),n=nearestDuct(t),tg=target(),inT=tg&&t.distanceTo(tg.c)<=tg.r,ts=inT?'・ターゲット内':'';
@@ -749,14 +827,13 @@ function resultText(){
 
 /* ===== UI ===== */
 function syncUI(){
+  applyAngleLimit();
   computeDepth();
-  $('angBig').textContent=angText(S.theta);
-  $('theta').value=CARM_DIR*S.theta;
+  $('angBig').textContent=angParts().join(' / ');
   $('yaw').value=S.yaw;$('pitch').value=S.pitch;
-  $('angVal').textContent='水平 '+S.yaw+'° / 頭尾 '+S.pitch+'°';
+  {const a=S.entry?dirAngles(needleDir()):S;$('angVal').textContent='水平 '+a.yaw+'° / 頭尾 '+a.pitch+'°';}
   $('depVal').innerHTML=S.eff.toFixed(1)+'<br>cm'+(S.blocked?'<br>（止）':'');
   const j=judge(),st=$('status');st.className='chip '+j.cls;st.textContent=j.txt;
-  updateNudgeLabels();
   renderFluoro();
   if(tr)update3D();
 }
@@ -774,42 +851,6 @@ function setEntry(p){
   entryNotice(p);
   syncUI();
 }
-/* 刺入点の微調整：頭尾方向と、体表（楕円）に沿った周方向 */
-function ellPhi(p){return Math.atan2(p.y/BODY.b,p.x/BODY.a);}
-function circTan(phi){return V(-BODY.a*Math.sin(phi),BODY.b*Math.cos(phi),0).normalize();}
-function circLabel(t){return Math.abs(t.x)>=Math.abs(t.y)?(t.x<0?'患者右':'患者左'):(t.y>0?'腹側':'背側');}
-function updateNudgeLabels(){
-  if(!S.entry){$('nsA').textContent='—';$('nsB').textContent='—';return;}
-  const t=circTan(ellPhi(S.entry));$('nsA').textContent=circLabel(t.clone().negate());$('nsB').textContent=circLabel(t);
-}
-function nudge(dz,ds){
-  if(!S.entry){toast('先に刺入点を選んでください');return;}
-  if(S.depth>0){toast('針を抜いてから刺入点を変えてください');return;}
-  let phi=ellPhi(S.entry);
-  if(ds){const L=Math.hypot(BODY.a*Math.sin(phi),BODY.b*Math.cos(phi));phi+=ds/L;}
-  const p=V(BODY.a*Math.cos(phi),BODY.b*Math.sin(phi),Math.max(BODY.z0+1,Math.min(BODY.z1-1,S.entry.z+dz)));
-  S.entry=p;S.normal=surfaceNormal(p);
-  entryNotice(p);
-  syncUI();
-}
-$('nzU').onclick=()=>nudge(1,0);
-$('nzD').onclick=()=>nudge(-1,0);
-$('nsA').onclick=()=>nudge(0,-1);
-$('nsB').onclick=()=>nudge(0,1);
-function preset(kind){
-  if(S.depth>0){toast('針を抜いてから刺入点を変えてください');return;}
-  if(S.tgt){S.tgt=kind==='R'?'B6':'B3';$('tgt').value=S.tgt;}
-  if(kind==='R'){
-    /* 右肋間：頭尾方向に少しずつずらして、直下に肋骨のない肋間の真ん中あたりを選ぶ */
-    const y=-1,x=-BODY.a*Math.sqrt(1-(y/BODY.b)**2),clear=z=>{const p=V(x,y,z),n=surfaceNormal(p);return [0.6,1.2,2].every(d=>!hitWhat(p.clone().addScaledVector(n,-d)));};
-    let best=-4.0,bestLen=-1;
-    for(let z=-6.5;z<=-1.5;z+=0.1){if(!clear(z))continue;let a=z,b=z;while(a>-9&&clear(a-0.1))a-=0.1;while(b<1&&clear(b+0.1))b+=0.1;if(b-a>bestLen){bestLen=b-a;best=(a+b)/2;}}
-    setEntry(V(x,y,best));
-  }
-  else{const x=2;setEntry(V(x,BODY.b*Math.sqrt(1-(x/BODY.a)**2),-6));}
-}
-$('preR').onclick=()=>preset('R');
-$('preE').onclick=()=>preset('E');
 
 /* 透視画像タップ → 光線と体表（楕円柱）の検出器側の交点 */
 fCan.addEventListener('click',e=>{
@@ -827,8 +868,7 @@ fCan.addEventListener('click',e=>{
 });
 
 const th=v=>{S.theta=Math.max(-90,Math.min(90,v));syncUI();if(S.gyroMode==='carm')rebase();};
-$('theta').oninput=e=>th(CARM_DIR*e.target.value);
-$('thZero').onclick=()=>th(0);
+$('thZero').onclick=()=>{S.phi=0;th(0);};
 /* 直交：今の角度から可動範囲（±90°）に収まる側へ90°回す（APのときはLAO 90°） */
 /* 90°ボタンは約0.9秒かけて回す（回しながら針と標的の位置関係の変化を見られるように） */
 let carmAnim=null;
@@ -867,9 +907,10 @@ $('reset').onclick=()=>{S.depth=0;$('depth').value=0;S.yaw=0;S.pitch=0;if(typeof
 /* 傾きセンサー（HTTPSで直接開いたときのみ動作。公開ページ内では通常使えない） */
 let base=null,gotEvent=false;
 let lastRaw=null;
-const CARM_DIR=1;   // C-armスライダーの向き（縦置き。1＝上がLAO・下がRAO、-1で逆）
 const TWIST_DIR=-1; // ひねり操作の向き（-1で現行、1で逆）
 const CARM_GAIN=3;   // C-armモードではひねりの3倍回す（30°ひねるとLAO/RAO 90°）
+const PHI_MAX=20;    // CRA/CAUの可動域（±°）。ブルズアイを作るための補助なので控えめ
+const PHI_DIR=-1;    // C-armモードで画面を起こす／寝かせる向き（-1＝寝かせるとCAU。針の頭尾と同じ向き）
 /* ひねり（画面の縦軸まわりの回転）の角度。重力に対する傾きでは測れないため、
    端末の向き（alpha/beta/gamma）から回転行列を作り、スマホの長辺方向（端末y軸）の水平面上の向きを使う。
    長辺は横持ちで画面を寝かせても起こしても水平のままなので、ひねりだけを拾い、ハンドル操作や前後の傾きには鈍い */
@@ -893,11 +934,11 @@ function onOri(e){
   if(e.beta==null)return;gotEvent=true;
   const tw=twistDeg(e),rc=reclineDeg(e);
   lastRaw={tw,rc};
-  if(!base){base={cw:tw-TWIST_DIR*S.theta/CARM_GAIN,ty:tw-S.yaw,rc:rc+S.pitch};toast('今の姿勢を基準にしました');}
+  if(!base){base={cw:tw-TWIST_DIR*S.theta/CARM_GAIN,cp:rc-PHI_DIR*S.phi,ty:tw-S.yaw,rc:rc+S.pitch};toast('今の姿勢を基準にしました');}
   if(S.gyroMode==='carm'){
-    if(S.holdCarm)return;
     const t=Math.round(Math.max(-90,Math.min(90,TWIST_DIR*wrap180(tw-base.cw)*CARM_GAIN)));
-    if(t!==S.theta){S.theta=t;syncUI();}
+    const f=Math.round(Math.max(-PHI_MAX,Math.min(PHI_MAX,PHI_DIR*(rc-base.cp))));
+    if(t!==S.theta||f!==S.phi){S.theta=t;S.phi=f;syncUI();}
     return;
   }
   if(S.holdNeedle||!S.entry||(S.lockY&&S.lockP))return;
@@ -907,7 +948,7 @@ function onOri(e){
   if(ch)syncUI();
 }
 /* 今の角度を基準に付け直す（固定の解除、モード切替、バーやスライダーから指を離したとき） */
-function rebaseCarm(){if(base&&lastRaw)base.cw=lastRaw.tw-TWIST_DIR*S.theta/CARM_GAIN;}
+function rebaseCarm(){if(base&&lastRaw){base.cw=lastRaw.tw-TWIST_DIR*S.theta/CARM_GAIN;base.cp=lastRaw.rc-PHI_DIR*S.phi;}}
 function rebaseYaw(){if(base&&lastRaw)base.ty=lastRaw.tw-S.yaw;}
 function rebasePitch(){if(base&&lastRaw)base.rc=lastRaw.rc+S.pitch;}
 function rebase(){if(S.gyroMode==='carm')rebaseCarm();else{if(!S.lockY)rebaseYaw();if(!S.lockP)rebasePitch();}}
@@ -920,10 +961,12 @@ function toggleLock(axis){
 /* 傾き操作の対象：ふだんは針の角度。透視画面を長押ししている間だけC-arm（LAO/RAO）。
    離すと針に戻り、それぞれ今の角度から続けて動く（基準を付け直す） */
 const CLUTCH_MS=300,DRAG_MOVE_CANCEL=10;
-let clutchTimer=null,clutchUsed=false,clutchOnNow=false,downX=0,downY=0,lastX=0;
+let clutchTimer=null,clutchUsed=false,clutchOnNow=false,downX=0,downY=0,lastX=0,lastY=0;
 /* 透視画面の長押し（0.3秒）でC-arm操作に入る。
    ・左右にドラッグするとLAO/RAOが回る（右へ＝LAO、画面幅いっぱいで270°）
-   ・傾き操作がオンなら、回転（ひねり）でも回る
+   ・上下にドラッグするとCRA/CAUが傾く（上へ＝CRA、画面の高さいっぱいで90°、±PHI_MAXまで）
+     1回のドラッグでは最初に大きく動いた向き（左右か上下）だけを変え、斜めのぶれで他方が動かないようにする
+   ・傾き操作がオンなら、ひねりでLAO/RAO、起こす／寝かせるでCRA/CAUも動く
    離すと終了し、傾き操作は針に戻る */
 function clutchOn(){
   clutchOnNow=true;clutchUsed=true;$('ovClutch').hidden=false;
@@ -936,28 +979,38 @@ function clutchOff(){
   clutchOnNow=false;$('ovClutch').hidden=true;
 }
 fCan.addEventListener('pointerdown',e=>{
-  if(S.mode!=='fluoro')return;clutchUsed=false;downX=lastX=e.clientX;downY=e.clientY;
+  if(S.mode!=='fluoro'||!e.isPrimary)return;S.ptr=e.pointerId;   // 最初に触れた指だけを追う（2本目の指は無視）
+  clutchUsed=false;downX=lastX=e.clientX;downY=lastY=e.clientY;S.dragAxis=null;
   try{fCan.setPointerCapture(e.pointerId);}catch(_){}
   clearTimeout(clutchTimer);clutchTimer=setTimeout(clutchOn,CLUTCH_MS);
 });
 fCan.addEventListener('pointermove',e=>{
+  if(e.pointerId!==S.ptr)return;
   if(!clutchOnNow){
     // 長押しが成立する前に大きく動いたら長押しを取り消す
     if(clutchTimer&&Math.hypot(e.clientX-downX,e.clientY-downY)>DRAG_MOVE_CANCEL){clearTimeout(clutchTimer);clutchTimer=null;}
     return;
   }
-  const w=fCan.getBoundingClientRect().width||1,dx=e.clientX-lastX;
-  if(Math.abs(dx)<1)return;
-  S.dragTheta=(S.dragTheta??S.theta)+dx/w*270;lastX=e.clientX;   // 画面幅いっぱいで270°（中心から端までで135°）
-  const t=Math.round(Math.max(-90,Math.min(90,S.dragTheta)));
-  if(t!==S.theta){S.theta=t;syncUI();}
+  const r=fCan.getBoundingClientRect(),dx=e.clientX-lastX,dy=e.clientY-lastY;
+  if(!S.dragAxis){if(Math.max(Math.abs(dx),Math.abs(dy))<8)return;S.dragAxis=Math.abs(dx)>=Math.abs(dy)?'x':'y';}
+  if(S.dragAxis==='x'){
+    if(Math.abs(dx)<1)return;
+    S.dragTheta=(S.dragTheta??S.theta)+dx/(r.width||1)*270;   // 画面幅いっぱいで270°（中心から端までで135°）
+    const t=Math.round(Math.max(-90,Math.min(90,S.dragTheta)));
+    if(t!==S.theta){S.theta=t;syncUI();}
+  }else{
+    if(Math.abs(dy)<1)return;
+    S.dragPhi=(S.dragPhi??S.phi)-dy/(r.height||1)*90;          // 上へ＝CRA。画面の高さいっぱいで90°
+    const f=Math.round(Math.max(-PHI_MAX,Math.min(PHI_MAX,S.dragPhi)));
+    if(f!==S.phi){S.phi=f;syncUI();}
+  }
+  lastX=e.clientX;lastY=e.clientY;
   if(S.gyro)rebaseCarm();
 });
-['pointerup','pointercancel'].forEach(t=>fCan.addEventListener(t,()=>{S.dragTheta=null;clutchOff();}));
+['pointerup','pointercancel'].forEach(t=>fCan.addEventListener(t,e=>{if(e.pointerId!==S.ptr)return;S.ptr=null;S.dragTheta=S.dragPhi=S.dragAxis=null;clutchOff();}));
 fCan.addEventListener('contextmenu',e=>e.preventDefault());
-$('cbar').addEventListener('pointerdown',()=>{S.holdCarm=true;});
 ['yaw','pitch'].forEach(id=>$(id).addEventListener('pointerdown',()=>{S.holdNeedle=true;}));
-function release(){if(S.holdCarm||S.holdNeedle){S.holdCarm=false;S.holdNeedle=false;rebase();}}
+function release(){if(S.holdNeedle){S.holdNeedle=false;rebase();}}
 window.addEventListener('pointerup',release);
 window.addEventListener('pointercancel',release);
 $('lockY').onclick=()=>toggleLock('y');
@@ -998,6 +1051,34 @@ if(window.matchMedia&&matchMedia('(pointer:coarse)').matches){
     document.addEventListener('click',once,true);
   }else startGyro(true);
 }
+
+/* 呼吸性移動：自由呼吸は5秒周期（呼気終末で2秒止まる）。息止めは毎回少し違う位置（呼気寄り）で止まる */
+let respRaf=null,respLast=0;
+function respTick(now){
+  if(!RESP.on){respRaf=null;return;}
+  const dt=Math.min(0.1,(now-(respLast||now))/1000);respLast=now;
+  if(RESP.hold)RESP.s+=(RESP.holdS-RESP.s)*Math.min(1,dt*5);   // 0.5秒ほどで止める位置へ
+  else{RESP.tc=(RESP.tc+dt)%(RESP_TI+RESP_TE+RESP_TP);RESP.s=respShape(RESP.tc);}
+  const dz=-RESP.amp*RESP.s;
+  if(Math.abs(dz-RESP.dz)>1e-4){RESP.dz=dz;syncUI();}
+  respRaf=requestAnimationFrame(respTick);
+}
+function setResp(on){
+  RESP.on=on;RESP.hold=false;RESP.tc=RESP_TI+RESP_TE;RESP.s=0;RESP.dz=0;respLast=0;   // 呼気終末の休止から始める
+  $('respBtn').textContent=on?'呼吸：オン':'呼吸：オフ';$('respBtn').classList.toggle('on',on);$('respBtn').setAttribute('aria-pressed',on);
+  $('breath').hidden=!on;setHoldLabel();
+  if(on&&!respRaf)respRaf=requestAnimationFrame(respTick);
+  syncUI();
+}
+function setHoldLabel(){$('breath').textContent=RESP.hold?'呼吸再開':'息止め';$('breath').classList.toggle('on',RESP.hold);$('breath').setAttribute('aria-pressed',RESP.hold);}
+$('respBtn').onclick=()=>setResp(!RESP.on);
+$('respAmp').oninput=e=>{RESP.amp=+e.target.value;$('respVal').textContent=RESP.amp.toFixed(1)+' cm';};
+$('breath').onclick=()=>{
+  RESP.hold=!RESP.hold;
+  if(RESP.hold)RESP.holdS=0.1+Math.random()*0.4;          // 止める位置：振れ幅の10〜50%（毎回ずれる）
+  else RESP.tc=RESP_TI*Math.acos(Math.max(-1,Math.min(1,1-2*RESP.s)))/Math.PI;   // 今の位置から吸気へ続ける
+  setHoldLabel();
+};
 
 /* 設定シート */
 function setSheet(open){$('sheet').hidden=!open;$('scrim').hidden=!open;if(open)$('closeSet').focus();else $('openSet').focus();}
