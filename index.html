@@ -284,7 +284,7 @@ const DEG=Math.PI/180;
 
 /* ===== 座標系（cm）: x=患者の左(+)、y=腹側(+)、z=頭側(+)。仰臥位 ===== */
 const BODY={a:16,b:11,z0:-22,z1:20};
-const ISO=V(0,0,-2.5);       // C-armの回転中心：正中・体の厚みの中央（頭尾は肝門よりやや尾側）。寝台移動は再現しない //      // C-armの回転中心（患者の右寄り。右肋間から刺した針の後端まで視野に入れるため）
+const ISO=V(0,0,-2.5);       // C-armの回転中心：正中・体の厚みの中央（頭尾は肝門よりやや尾側）。寝台移動は再現しない
 const SOD=75;                // 管球〜回転中心（血管造影装置の一般的な値に寄せた概数）
 const SID=115;               // 管球〜検出器
 const HALF_H=8;              // 回転中心での視野の縦半分（胆管の上下端＋余白。頭尾方向は狭めて拡大）
@@ -300,8 +300,6 @@ function livProf(x){
   return {zc:L('zc'),zh:L('zh'),yc:L('yc'),yh:L('yh')};
 }
 function livRound(x){const t=(x-LIV.X[0])/(LIV.X.at(-1)-LIV.X[0]),sx=2*t-1;return Math.pow(Math.max(0,1-sx*sx),LIV.EXP/2);}
-/* 肺：横隔膜より上で左右に。背側は低く（後肋横隔膜角）回り込む。透視では含気で明るく写す */
-const LUNGS=[{c:V(-8.5,-1.5,15.5),r:V(6.5,8,9)},{c:V(9.5,-1.5,15.5),r:V(5.5,8,9.5)}];
 /* 心臓（おまけ）：横隔膜の上、心尖は左前下を向く */
 const HEART={c:V(4.5,4.3,10.5),r:V(8.5,5,6.5),rot:new THREE.Euler(0.35,0,-0.55)};   // 胸骨のすぐ後ろ（前縁はy≈9）に前寄せで配置
 
@@ -404,7 +402,7 @@ function hitWhat(p){
 function surfaceNormal(p){return V(p.x/BODY.a**2,p.y/BODY.b**2,0).normalize();}
 
 /* ===== 状態 ===== */
-const S={theta:0,entry:null,normal:null,yaw:0,pitch:0,depth:0,eff:0,blocked:false,mode:'fluoro',gyro:false,locked:false,tgt:'B3',tgtD:7,gyroMode:'needle',gTgt:false,gExt:false};
+const S={theta:0,entry:null,normal:null,yaw:0,pitch:0,depth:0,eff:0,blocked:false,mode:'fluoro',gyro:false,tgt:'B3',tgtD:7,gyroMode:'needle',gTgt:false,gExt:false};
 /* ターゲット：指定した枝の末梢寄り（曲線の75%地点）に置く球 */
 function target(){
   if(!S.tgt)return null;
@@ -482,7 +480,6 @@ function placeBody(m){m.rotation.x=Math.PI/2;m.scale.set(BODY.a,1,BODY.b);m.posi
 function addAnatomy(scene,mat){
   const body=new THREE.Mesh(mat.longBody?G.bodyLong:G.body,mat.body);placeBody(body);if(mat.longBody)body.position.z=0;scene.add(body);
   scene.add(new THREE.Mesh(G.liver,mat.liver));
-  if(mat.lung)LUNGS.forEach(l=>{const m=new THREE.Mesh(G.sphere,mat.lung);m.position.copy(l.c);m.scale.copy(l.r);m.renderOrder=5;scene.add(m);});
   {const h=new THREE.Mesh(G.sphere,mat.heart);h.position.copy(HEART.c);h.scale.copy(HEART.r);h.rotation.copy(HEART.rot);scene.add(h);}
   G.ribs.forEach(g=>scene.add(new THREE.Mesh(g,mat.rib||mat.bone)));
   SPINE.forEach(z=>{
@@ -519,13 +516,6 @@ function softMaterial(strength){
     'float v=1.0-strength*th;gl_FragColor=vec4(v,v,v,1.0);}';
   return m;
 }
-/* 含気（肺）：通過する厚みに比例して明るくする（加算）。減弱の後に足すよう描画順を後ろにする */
-function airMaterial(strength){
-  return new THREE.ShaderMaterial({uniforms:{strength:{value:strength}},transparent:true,depthTest:false,depthWrite:false,
-    blending:THREE.CustomBlending,blendEquation:THREE.AddEquation,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,side:THREE.FrontSide,
-    vertexShader:'varying vec3 vN;varying vec3 vW;void main(){vec4 w=modelMatrix*vec4(position,1.0);vW=w.xyz;vN=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*viewMatrix*w;}',
-    fragmentShader:'uniform float strength;varying vec3 vN;varying vec3 vW;void main(){vec3 vd=normalize(cameraPosition-vW);float c=abs(dot(normalize(vN),vd));float v=strength*smoothstep(0.0,0.9,c);gl_FragColor=vec4(v,v,v,1.0);}'});
-}
 const fMat={longBody:true,body:softMaterial(.09),liver:softMaterial(.11),heart:softMaterial(.32),spine:boneMaterial(false),post:(()=>{const m=boneMaterial(false);m.uniforms.strength.value=.11;return m;})(),rib:(()=>{const m=boneMaterial(true);m.uniforms.strength.value=.13;return m;})(),duct:xr(.42)};
 addAnatomy(fScene,fMat);
 /* 胸骨は透視でも写す（正面では椎体と重なって淡く、斜位で見えてくる）。剣状突起は薄く一部軟骨性なのでさらに淡く */
@@ -551,18 +541,17 @@ const fTgt=new THREE.Mesh(new THREE.RingGeometry(0.86,1,64),new THREE.MeshBasicM
 fTgt.renderOrder=10;fScene.add(fTgt);
 const fTgtDot=new THREE.Mesh(new THREE.CircleGeometry(1,48),new THREE.MeshBasicMaterial({color:0xf2a93b,transparent:true,opacity:.14,depthTest:false,depthWrite:false,side:THREE.DoubleSide}));
 fTgtDot.renderOrder=9;fScene.add(fTgtDot);
-/* ガイド線：琥珀＝刺入点→ターゲット中心、白＝針先からの延長線 */
+/* ガイド線：シアン＝刺入点→ターゲット中心（標的線）、白＝針先からの延長線 */
 function dashLine(color){
   const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0,0,0),V(0,0,1)]),
     new THREE.LineDashedMaterial({color,dashSize:.6,gapSize:.4,transparent:true,opacity:.95,depthTest:false,depthWrite:false}));
   l.renderOrder=11;l.visible=false;return l;
 }
-/* 標的線は太い破線（細い線は透視像に埋もれるため）。暗い縁取りの上に明るい琥珀の破線を重ねる */
+/* 標的線は太さのある破線（細い線は透視像に埋もれるため）。円柱を並べて作る */
 const UNIT_CYL=new THREE.CylinderGeometry(1,1,1,10);
 function dashTube(color,r){
   const g=new THREE.Group();g.visible=false;g.renderOrder=11;
-  g.userData={color,r,halo:new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.55,depthTest:false,depthWrite:false}),
-    core:new THREE.MeshBasicMaterial({color,transparent:true,opacity:1,depthTest:false,depthWrite:false})};
+  g.userData={r,core:new THREE.MeshBasicMaterial({color,transparent:true,opacity:1,depthTest:false,depthWrite:false})};
   return g;
 }
 function setDashTube(g,a,b){
@@ -571,9 +560,7 @@ function setDashTube(g,a,b){
   const dir=d.clone().normalize(),q=new THREE.Quaternion().setFromUnitVectors(V(0,1,0),dir),dash=0.9,gap=0.5,r=g.userData.r;
   for(let s0=0;s0<L;s0+=dash+gap){
     const len=Math.min(dash,L-s0),mid=a.clone().addScaledVector(dir,s0+len/2);
-    [[g.userData.core,r,11]].forEach(([m,rr,o])=>{
-      const c=new THREE.Mesh(UNIT_CYL,m);c.quaternion.copy(q);c.position.copy(mid);c.scale.set(rr,len,rr);c.renderOrder=o;g.add(c);
-    });
+    const c=new THREE.Mesh(UNIT_CYL,g.userData.core);c.quaternion.copy(q);c.position.copy(mid);c.scale.set(r,len,r);c.renderOrder=11;g.add(c);
   }
 }
 function placeGuides(gT,gE){
@@ -676,7 +663,7 @@ function init3D(){
   const L=(c,o)=>new THREE.MeshLambertMaterial({color:c,transparent:o<1,opacity:o,depthWrite:o>=0.5,side:THREE.DoubleSide});
   const bodyMat=new THREE.MeshBasicMaterial({color:0x8aa0a6,transparent:true,opacity:.05,depthWrite:false,side:THREE.DoubleSide});
   addAnatomy(root,{body:bodyMat,liver:L(0xb9744f,.16),heart:L(0xb8484f,.22),bone:L(0xddd6c6,.55),duct:L(0x4cc38a,1)});
-  /* 胸骨と肋軟骨（3Dのみ。透視ではほぼ写らないため描かない） */
+  /* 胸骨・剣状突起と肋軟骨（肋軟骨は3Dのみ。透視には写さない） */
   sternumMeshes(L(0xddd6c6,.55),L(0xcfd8d4,.55)).forEach(m=>root.add(m));
   const cart=L(0x9fb4bd,.55);
   CARTS.forEach(c=>root.add(new THREE.Mesh(tube(c.curve,c.r,24),cart)));
@@ -917,7 +904,7 @@ function toggleLock(axis){
 const CLUTCH_MS=300,DRAG_MOVE_CANCEL=10;
 let clutchTimer=null,clutchUsed=false,clutchOnNow=false,downX=0,downY=0,lastX=0;
 /* 透視画面の長押し（0.3秒）でC-arm操作に入る。
-   ・左右にドラッグするとLAO/RAOが回る（右へ＝LAO、画面幅いっぱいで180°）
+   ・左右にドラッグするとLAO/RAOが回る（右へ＝LAO、画面幅いっぱいで270°）
    ・傾き操作がオンなら、回転（ひねり）でも回る
    離すと終了し、傾き操作は針に戻る */
 function clutchOn(){
@@ -1029,8 +1016,8 @@ function resize(){
   fr.setSize(w,h,false);fCam.aspect=w/h;
   // 回転中心で横46 cm×縦16 cmが必ず収まるように視野を広げる（縦長・細長い画面でも全景を表示）
   const halfH=Math.max(HALF_H,HALF_W/(w/h));fCam.fov=2*Math.atan(halfH/SOD)/DEG;
-  fGT.userData.r=2*halfH/h;
-  fTipMark.scale.setScalar(2.2*2*halfH/h);fSkinMark.scale.setScalar(2.2*2*halfH/h);   // 針先の点は画面上で直径約4〜5 px   // 回転中心で1 pxに相当する半径＝幅約2 px
+  fGT.userData.r=2*halfH/h;   // 回転中心で1 pxに相当する半径＝標的線の幅約2 px
+  fTipMark.scale.setScalar(2.2*2*halfH/h);fSkinMark.scale.setScalar(2.2*2*halfH/h);   // 針先・刺入点の点は画面上で直径約4〜5 px
   fCam.updateProjectionMatrix();renderFluoro();
   if(tr){tr.setSize(w,h,false);tCam.aspect=w/h;tCam.updateProjectionMatrix();}
 }
