@@ -227,7 +227,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:26px;margin:0}
   <div class="sec">
     <div class="lab">傾き操作</div>
     <button class="btn" id="gyroBtn">傾きで操作する</button>
-    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが出ます。スマホの姿勢がずれてきたら、右パネルの「0°」で角度を0°に戻し、今の姿勢を基準にし直せます（抜針した状態のみ）。透視画面を長押ししている間だけ、ひねりでC-armが回り（ひねりの3倍、30°ひねるとLAO/RAO 90°）、起こす／寝かせるでCRA/CAUが傾きます（寝かせるとCAU）。離すと針の操作に戻ります。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。スマホでは自動でオンになります（iPhoneは最初のタップで許可を求めます）。HTTPSのページを直接開いたときのみ動作します。</p>
+    <p class="hint">横持ちの画面を縦軸まわりにひねると針の水平方向、画面を起こす／寝かせると頭尾方向が動きます（スマホの傾きの2倍）。オンにすると右パネルの水平・頭尾それぞれに「固定」ボタンが出ます。スマホの姿勢がずれてきたら、右パネルの「0°」で角度を0°に戻し、今の姿勢を基準にし直せます（抜針した状態のみ）。透視画面を長押ししている間だけ、ひねりでC-armが回り（ひねりの3倍、30°ひねるとLAO/RAO 90°）、起こす／寝かせるでCRA/CAUが傾きます（寝かせるとCAU）。離すと針の操作に戻ります。端末の方位から計算するため、機種によってはずれや揺れが出ることがあります。スマホでは自動でオンになります（iPhoneは最初のタップで許可を求めます）。HTTPSのページを直接開いたときのみ動作します。</p>
   </div>
   <div class="sec">
     <div class="lab">呼吸性移動（Advanced）</div>
@@ -914,6 +914,7 @@ let base=null,gotEvent=false;
 let lastRaw=null;
 const TWIST_DIR=-1; // ひねり操作の向き（-1で現行、1で逆）
 const CARM_GAIN=3;   // C-armモードではひねりの3倍回す（30°ひねるとLAO/RAO 90°）
+const NEEDLE_GAIN=2; // 針はスマホの傾きの2倍動かす（30°傾けると60°＝スライダーの端）
 const PHI_MAX=20;    // CRA/CAUの可動域（±°）。ブルズアイを作るための補助なので控えめ
 const PHI_DIR=-1;    // C-armモードで画面を起こす／寝かせる向き（-1＝寝かせるとCAU。針の頭尾と同じ向き）
 /* ひねり（画面の縦軸まわりの回転）の角度。重力に対する傾きでは測れないため、
@@ -939,7 +940,7 @@ function onOri(e){
   if(e.beta==null)return;gotEvent=true;
   const tw=twistDeg(e),rc=reclineDeg(e);
   lastRaw={tw,rc};
-  if(!base){base={cw:tw-TWIST_DIR*S.theta/CARM_GAIN,cp:rc-PHI_DIR*S.phi,ty:tw-S.yaw,rc:rc+S.pitch};toast('今の姿勢を基準にしました');}
+  if(!base){base={cw:tw-TWIST_DIR*S.theta/CARM_GAIN,cp:rc-PHI_DIR*S.phi,ty:tw-S.yaw/NEEDLE_GAIN,rc:rc+S.pitch/NEEDLE_GAIN};toast('今の姿勢を基準にしました');}
   if(S.gyroMode==='carm'){
     const t=Math.round(Math.max(-90,Math.min(90,TWIST_DIR*wrap180(tw-base.cw)*CARM_GAIN)));
     const f=Math.round(Math.max(-PHI_MAX,Math.min(PHI_MAX,PHI_DIR*(rc-base.cp))));
@@ -948,14 +949,14 @@ function onOri(e){
   }
   if(S.holdNeedle||!S.entry||(S.lockY&&S.lockP))return;
   let ch=false;
-  if(!S.lockY){const y=Math.round(Math.max(-60,Math.min(60,wrap180(tw-base.ty))));if(y!==S.yaw){S.yaw=y;ch=true;}}
-  if(!S.lockP){const p=Math.round(Math.max(-60,Math.min(60,-(rc-base.rc))));if(p!==S.pitch){S.pitch=p;ch=true;}}
+  if(!S.lockY){const y=Math.round(Math.max(-60,Math.min(60,wrap180(tw-base.ty)*NEEDLE_GAIN)));if(y!==S.yaw){S.yaw=y;ch=true;}}
+  if(!S.lockP){const p=Math.round(Math.max(-60,Math.min(60,-(rc-base.rc)*NEEDLE_GAIN)));if(p!==S.pitch){S.pitch=p;ch=true;}}
   if(ch)syncUI();
 }
 /* 今の角度を基準に付け直す（固定の解除、モード切替、バーやスライダーから指を離したとき） */
 function rebaseCarm(){if(base&&lastRaw){base.cw=lastRaw.tw-TWIST_DIR*S.theta/CARM_GAIN;base.cp=lastRaw.rc-PHI_DIR*S.phi;}}
-function rebaseYaw(){if(base&&lastRaw)base.ty=lastRaw.tw-S.yaw;}
-function rebasePitch(){if(base&&lastRaw)base.rc=lastRaw.rc+S.pitch;}
+function rebaseYaw(){if(base&&lastRaw)base.ty=lastRaw.tw-S.yaw/NEEDLE_GAIN;}
+function rebasePitch(){if(base&&lastRaw)base.rc=lastRaw.rc+S.pitch/NEEDLE_GAIN;}
 function rebase(){if(S.gyroMode==='carm')rebaseCarm();else{if(!S.lockY)rebaseYaw();if(!S.lockP)rebasePitch();}}
 /* 軸ごとの固定。解除時はその軸の基準を付け直し、固定中の角度から続けて動かせるようにする */
 function toggleLock(axis){

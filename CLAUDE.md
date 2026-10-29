@@ -24,7 +24,7 @@ X線透視下PTBD（肝内胆管穿刺）の空間イメージを練習する、
 - 視野：回転中心で横 `2*HALF_W=46`、縦 `2*HALF_H=16` 以上が常に収まるようfovを自動調整
 - C-armはLAO/RAO（±90°）と、ブルズアイ用の控えめなCRA/CAU（`PHI_MAX=20`、+＝CRA＝検出器が頭側）
 - 骨の当たり判定は甘め：`HIT_RIB=0.65`、`HIT_CART=0.5`（見た目の太さに対する割合）
-- 傾き操作：C-armは「ひねり」の3倍（`CARM_GAIN`）でLAO/RAO、起こす／寝かせる（`PHI_DIR`）でCRA/CAU。針は1倍。ひねりの向きは `TWIST_DIR`
+- 傾き操作：C-armは「ひねり」の3倍（`CARM_GAIN`）でLAO/RAO、起こす／寝かせる（`PHI_DIR`）でCRA/CAU。針は2倍（`NEEDLE_GAIN`）。ひねりの向きは `TWIST_DIR`
 - 刺入後の角度制約：`ANG_FREE=2` cmまで自由、以降±`ANG_TOL=5`°、肝内（`S.anchor`）は肝内の針の長さで `LIVER_TOL`（1 cm未満±5°、1〜3 cm±3°、3 cm以上固定）。段階ごとの中心角度は `S.limRef`
 - 呼吸：`RESP`（`dz`＝臓器の頭尾ずれ）。12回/分（吸気1.5秒・呼気1.5秒・呼気終末休止2秒、`RESP_TI/TE/TP`）。肝・胆管は `addAnatomy` が返すグループごと動かし、判定は `toOrg` で臓器座標に戻す。肝内の針は最小二乗の支点モデルで傾く（`needleDir`）
 
